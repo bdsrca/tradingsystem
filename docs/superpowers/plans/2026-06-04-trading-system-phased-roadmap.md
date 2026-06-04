@@ -22,6 +22,7 @@ Deliverables:
 - Python package structure for data, quant, agents, email, and worker code.
 - Docker Compose for Postgres and local services.
 - Environment template.
+- Upstream dependency strategy documented for Kronos and TradingAgents.
 - Basic health endpoint.
 - Basic frontend shell.
 
@@ -39,6 +40,10 @@ Tasks:
 - [ ] Add Node project tooling for Next.js.
 - [ ] Add Docker Compose with Postgres.
 - [ ] Add `.env.example`.
+- [ ] Document the Kronos integration strategy in `CONTRIBUTING.md`. Default to `vendor/Kronos` or a Git submodule unless a standard package install is verified; Kronos currently should not be assumed to support `pip install git+...` from a `pyproject.toml`.
+- [ ] Add explicit configuration for the chosen Kronos source path or pinned commit in Python configuration and Docker build notes.
+- [ ] Pin the intended TradingAgents source to a specific commit or version in the dependency plan.
+- [ ] Run an initial dependency conflict check plan for Kronos, TradingAgents, LangGraph, LangChain, pandas, yfinance, and FastAPI. The actual lock can be finalized when dependencies are added, but the integration constraints must be visible from Phase 0.
 - [ ] Add API health endpoint.
 - [ ] Add web shell page.
 - [ ] Add initial smoke tests.
@@ -59,6 +64,7 @@ Deliverables:
 - OHLCV refresh.
 - Trading calendar abstraction for NYSE/Nasdaq/TSX.
 - Candlestick detail page with buy/sell marker support.
+- Lightweight Charts loaded client-side only in Next.js.
 
 Verification:
 
@@ -82,6 +88,8 @@ Tasks:
 - [ ] Implement calendar abstraction.
 - [ ] Build watchlist UI.
 - [ ] Build stock detail K-line chart with empty marker support.
+- [ ] Wrap every Lightweight Charts component in a client-only boundary. Components that reference `window`, DOM APIs, or `lightweight-charts` must live under `'use client'` and be loaded with Next.js `dynamic(..., { ssr: false })` from server-rendered routes.
+- [ ] Add a build/smoke check that would catch `window is not defined` errors from accidental server-side chart imports.
 - [ ] Commit.
 
 ## Phase 2: Deterministic Baseline Signals And Paper Validation
@@ -97,6 +105,7 @@ Deliverables:
 - `paper_portfolio_snapshots`.
 - Paper validation page with 1Y/2Y/3Y view.
 - Realized outcome backfill fields.
+- Nullable `signals.disagreement_level` column for later Kronos-vs-final-decision tracking.
 
 Verification:
 
@@ -104,6 +113,8 @@ Verification:
 - The signal appears as a marker on the K-line chart.
 - Paper page displays equity curve and metrics.
 - Unit tests cover repeat BUY, REDUCE 50%, max positions, and frozen signal snapshots.
+- `paper_portfolio_snapshots.benchmark_value` exists from the first schema version, even if Phase 2 initially stores `null`.
+- `signals.disagreement_level` accepts `none`, `soft`, `hard`, or `null`, with fill logic deferred until Phase 7.
 
 Tasks:
 
@@ -115,6 +126,9 @@ Tasks:
 - [ ] Implement append-only signal storage.
 - [ ] Write failing tests for paper-trading rules.
 - [ ] Implement paper-trading simulator.
+- [ ] Keep Phase 2 paper validation based on deterministic baseline signals only. Kronos forecast overlays on paper charts are deferred until after Kronos integration.
+- [ ] Include `benchmark_symbol` and `benchmark_value` in `paper_portfolio_snapshots` during the initial schema, populated as `null` until benchmark comparison is implemented.
+- [ ] Include nullable `disagreement_level` on `signals` during the initial schema to avoid a later migration just for Phase 7 disagreement display.
 - [ ] Build paper validation page.
 - [ ] Add stock-detail signal markers.
 - [ ] Commit.
@@ -142,7 +156,8 @@ Verification:
 
 Tasks:
 
-- [ ] Decide whether Kronos is vendored, installed from Git, or integrated as a submodule.
+- [ ] Implement the Kronos dependency strategy chosen in Phase 0. Do not re-decide the strategy here unless Phase 0's assumption is proven invalid.
+- [ ] If Kronos is vendored or added as a submodule, add exact source commit metadata and Docker path configuration before model integration begins.
 - [ ] Write failing test for `test_kronos_batch_grouping_by_lookback_length()`.
 - [ ] Implement batch grouping.
 - [ ] Write failing tests for minimum history and short-history fallback.
@@ -161,6 +176,8 @@ Deliverables:
 
 - Remote LLM and Ollama connectivity checks.
 - Data snapshot contract for all agent inputs.
+- TradingAgents dependency pinned to a specific commit or version.
+- Dependency lock/conflict check with Kronos and TradingAgents active together.
 - TradingAgents component integration or compatibility wrapper.
 - Agent data tool wrapping/disablement so agents do not fetch conflicting prices.
 - LangGraph checkpoint pointer support.
@@ -170,6 +187,7 @@ Deliverables:
 Verification:
 
 - LLM connectivity test passes for configured provider.
+- Dependency lock succeeds with the selected TradingAgents commit and Kronos integration strategy.
 - Agent run consumes a frozen data snapshot.
 - Unsupported numbers in LLM output are flagged degraded.
 - Checkpoint metadata is stored as a pointer, not mixed blobs.
@@ -177,11 +195,14 @@ Verification:
 
 Tasks:
 
+- [ ] Pin TradingAgents to a specific commit or version before importing its components.
+- [ ] Run dependency conflict checks with Kronos and TradingAgents enabled together.
 - [ ] Write failing tests for provider config and Ollama base URL.
 - [ ] Implement LLM provider adapter.
 - [ ] Write failing tests for agent data anchoring.
 - [ ] Implement snapshot-to-agent input adapter.
 - [ ] Integrate or wrap TradingAgents analyst workflow.
+- [ ] Inventory TradingAgents internal external-data tools, especially yfinance-backed calls, before enabling the workflow.
 - [ ] Write failing tests for disabling conflicting external data pulls.
 - [ ] Implement data-tool wrappers.
 - [ ] Write failing tests for hallucination validator.
@@ -200,7 +221,7 @@ Deliverables:
 - Explicit `SCHEDULER_TIMEZONE`, default `America/Toronto`.
 - Default trigger at 17:00 ET.
 - Provider bar freshness retries.
-- Per-ticker advisory locks.
+- Per-ticker job lease or advisory-lock strategy that does not hold a long database transaction across Kronos or LLM calls.
 - Worker structured logs.
 - Daily digest email.
 - Strong-signal email aggregation and debounce.
@@ -209,6 +230,7 @@ Verification:
 
 - Manual trigger and scheduled trigger call the same analysis function.
 - Duplicate ticker run returns 409 or skips when locked.
+- Lock tests prove a slow Kronos/LLM run does not hold a long open database transaction.
 - Delayed bar retry logic marks stale-data-delayed after retries.
 - Repeated same-direction alert is suppressed within debounce window.
 - Daily digest shows succeeded, failed, skipped, stale, and degraded counts.
@@ -218,7 +240,8 @@ Tasks:
 - [ ] Write failing tests for scheduler timezone config.
 - [ ] Implement scheduler config.
 - [ ] Write failing tests for analysis lock conflict.
-- [ ] Implement per-ticker lock handling.
+- [ ] Implement per-ticker lock handling with a job lease or short database critical section. Avoid wrapping the full Kronos/LLM analysis in one long `pg_advisory_xact_lock` transaction.
+- [ ] Document lock key derivation if Postgres advisory locks are used, such as `hashtext(ticker || '::' || market)`, and document why the lock does or does not span the full run.
 - [ ] Write failing tests for provider freshness retry.
 - [ ] Implement freshness retry.
 - [ ] Write failing tests for email debounce.
@@ -234,6 +257,7 @@ Deliverables:
 
 - Basic Auth for cloud mode.
 - Backup/restore notes for Postgres.
+- Idempotent database initialization script.
 - Deployment notes.
 - Secrets handling.
 - End-to-end smoke script.
@@ -243,11 +267,14 @@ Verification:
 
 - Local first-run instructions work from a clean checkout.
 - Cloud mode protects the UI/API.
+- Database initialization runs Alembic and LangGraph checkpoint setup safely more than once.
 - Smoke script verifies web, API, DB, watchlist, and one analysis run.
 
 Tasks:
 
 - [ ] Add Basic Auth middleware for deployed mode.
+- [ ] Add `infra/scripts/init_db.sh` or equivalent initialization command that runs Alembic migrations, calls LangGraph checkpointer setup when enabled, and is idempotent.
+- [ ] Document the database initialization command as a required first-run step in README.
 - [ ] Add deployment env documentation.
 - [ ] Add backup/restore documentation.
 - [ ] Add smoke test script.
@@ -263,6 +290,7 @@ Deliverables:
 - Forecast accuracy tracking.
 - Signal outcome dashboard.
 - Kronos vs final-decision disagreement view.
+- Defined disagreement threshold rule.
 - Cross-market Kronos caveat display.
 - Optional Kronos fine-tune investigation plan for Nasdaq/NYSE/TSX.
 
@@ -271,6 +299,7 @@ Verification:
 - Realized 5/10/20/30 day outcomes are backfilled.
 - Accuracy dashboard shows forecast vs actual.
 - UI highlights Kronos/agent disagreement.
+- Disagreement calculation fills `signals.disagreement_level` using the stored nullable column from Phase 2.
 
 Tasks:
 
@@ -278,10 +307,10 @@ Tasks:
 - [ ] Implement outcome backfill job.
 - [ ] Add accuracy tracking query/API.
 - [ ] Add accuracy dashboard.
+- [ ] Define disagreement rules before UI work: direction mismatch is `hard`; Kronos magnitude above the configured threshold while the final signal is `HOLD` or `WATCH` is `soft`; otherwise `none`.
 - [ ] Add Kronos disagreement UI state.
 - [ ] Commit.
 
 ## Recommended Starting Point
 
 Start with Phase 0 and Phase 1. Do not start Kronos or TradingAgents integration until the local app can store watchlist items, fetch OHLCV, and show a candlestick chart.
-
