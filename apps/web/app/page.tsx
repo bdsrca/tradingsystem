@@ -23,9 +23,9 @@ export default function Home() {
           <h1>Trading System</h1>
           <p>Local-first US and Canadian equity signal platform.</p>
         </div>
-        <div className="status" aria-label="Phase 0 status">
+        <div className="status" aria-label="Phase 2 status">
           <span className="status-dot" aria-hidden="true" />
-          Phase 1 foundation
+          Phase 2 baseline
         </div>
       </header>
       <nav className="home-nav" aria-label="Primary">

@@ -24,6 +24,39 @@ export type PriceBar = {
   volume: number | null;
 };
 
+export type SignalMarker = {
+  time: string;
+  signal: string;
+  position: "aboveBar" | "belowBar";
+  color: string;
+  shape: "arrowUp" | "arrowDown" | "circle" | "square";
+  text: string;
+};
+
+export type PaperSnapshot = {
+  time: string;
+  portfolio_value: number;
+  cash: number;
+  positions_value: number;
+  benchmark_symbol: string | null;
+  benchmark_value: number | null;
+};
+
+export type PaperRun = {
+  id: string;
+  ticker: string;
+  exchange: string;
+  window_years: number;
+  signal_snapshot: { signal_ids?: string[]; source?: string };
+  metrics: {
+    total_return_pct: number;
+    max_drawdown_pct: number;
+    win_rate_pct: number;
+    trade_count: number;
+  };
+  snapshots: PaperSnapshot[];
+};
+
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 
@@ -46,4 +79,3 @@ export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T>
 
   return (await response.json()) as T;
 }
-

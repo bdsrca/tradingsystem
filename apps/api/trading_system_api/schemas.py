@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
@@ -57,3 +57,55 @@ class MarketDataRefreshResult(BaseModel):
     source_symbol: str
     bars_upserted: int
     latest_bar_date: str | None
+
+
+class SignalRead(BaseModel):
+    id: str
+    ticker: str
+    exchange: str
+    market: str
+    analysis_date: date
+    signal: str
+    confidence: float
+    entry_price: float | None
+    risk_level: float | None
+    reason: str
+    indicators: dict
+    layer_scores: dict
+    source: str
+    horizon_days: int
+
+
+class SignalMarkerRead(BaseModel):
+    time: str
+    signal: str
+    position: str
+    color: str
+    shape: str
+    text: str
+
+
+class PaperMetricsRead(BaseModel):
+    total_return_pct: float
+    max_drawdown_pct: float
+    win_rate_pct: float
+    trade_count: int
+
+
+class PaperSnapshotRead(BaseModel):
+    time: str
+    portfolio_value: float
+    cash: float
+    positions_value: float
+    benchmark_symbol: str | None
+    benchmark_value: float | None
+
+
+class PaperRunRead(BaseModel):
+    id: str
+    ticker: str
+    exchange: str
+    window_years: int
+    signal_snapshot: dict
+    metrics: PaperMetricsRead
+    snapshots: list[PaperSnapshotRead]

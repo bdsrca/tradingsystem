@@ -88,6 +88,35 @@ a {
   text-decoration: none;
 }
 
+.link-row,
+.action-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.action-row {
+  margin-top: 20px;
+}
+
+.action-row button {
+  background: var(--accent);
+  border: 0;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 10px 14px;
+}
+
+.action-row span {
+  color: var(--muted);
+  font-size: 14px;
+}
+
 .toolbar {
   display: flex;
   gap: 10px;
@@ -202,6 +231,58 @@ td a {
   margin-top: 24px;
 }
 
+.paper-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 24px;
+}
+
+.paper-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-height: 260px;
+  padding: 18px;
+}
+
+.paper-panel h2 {
+  font-size: 16px;
+  margin: 0 0 14px;
+}
+
+.metric-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0 0 16px;
+}
+
+.metric-grid div {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+
+.metric-grid dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.metric-grid dd {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 4px 0 0;
+}
+
+.equity-curve,
+.equity-empty {
+  background: #f9fafb;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  height: 120px;
+  width: 100%;
+}
+
 @keyframes pulse {
   0%,
   100% {
@@ -244,6 +325,10 @@ td a {
   }
 
   .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .paper-grid {
     grid-template-columns: 1fr;
   }
 }

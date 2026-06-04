@@ -13,6 +13,7 @@ from sqlalchemy import (
     JSON,
     Numeric,
     String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -90,6 +91,72 @@ class Signal(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
     watchlist_item_id: Mapped[str | None] = mapped_column(ForeignKey("watchlist_items.id"))
     analysis_run_id: Mapped[str | None] = mapped_column(ForeignKey("analysis_runs.id"))
+    ticker: Mapped[str | None] = mapped_column(String(32))
+    exchange: Mapped[str | None] = mapped_column(String(32))
+    market: Mapped[str | None] = mapped_column(String(8))
+    analysis_date: Mapped[date | None] = mapped_column(Date)
     signal: Mapped[str | None] = mapped_column(String(16))
+    confidence: Mapped[float | None] = mapped_column(Numeric(6, 4))
+    entry_price: Mapped[float | None] = mapped_column(Numeric(18, 6))
+    risk_level: Mapped[float | None] = mapped_column(Numeric(18, 6))
+    reason: Mapped[str | None] = mapped_column(Text)
+    indicators: Mapped[dict | None] = mapped_column(JSON)
+    layer_scores: Mapped[dict | None] = mapped_column(JSON)
+    source: Mapped[str | None] = mapped_column(String(32))
+    horizon_days: Mapped[int | None] = mapped_column(Integer)
     disagreement_level: Mapped[str | None] = mapped_column(String(16))
+    supersedes_signal_id: Mapped[str | None] = mapped_column(ForeignKey("signals.id"))
+    is_superseded: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    realized_return_pct: Mapped[float | None] = mapped_column(Numeric(12, 6))
+    realized_outcome: Mapped[str | None] = mapped_column(String(32))
+    realized_at: Mapped[date | None] = mapped_column(Date)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class PaperSimulationRun(Base):
+    __tablename__ = "paper_simulation_runs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
+    ticker: Mapped[str] = mapped_column(String(32), nullable=False)
+    exchange: Mapped[str] = mapped_column(String(32), nullable=False)
+    window_years: Mapped[int] = mapped_column(Integer, nullable=False)
+    initial_capital: Mapped[float] = mapped_column(Numeric(18, 6), nullable=False)
+    position_size_pct: Mapped[float] = mapped_column(Numeric(8, 6), nullable=False)
+    max_positions: Mapped[int] = mapped_column(Integer, nullable=False)
+    max_holding_days: Mapped[int] = mapped_column(Integer, nullable=False)
+    signal_snapshot: Mapped[dict] = mapped_column(JSON, nullable=False)
+    metrics: Mapped[dict | None] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class PaperTrade(Base):
+    __tablename__ = "paper_trades"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
+    simulation_run_id: Mapped[str] = mapped_column(ForeignKey("paper_simulation_runs.id"))
+    ticker: Mapped[str] = mapped_column(String(32), nullable=False)
+    action: Mapped[str] = mapped_column(String(32), nullable=False)
+    signal_id: Mapped[str | None] = mapped_column(ForeignKey("signals.id"))
+    trade_date: Mapped[date] = mapped_column(Date, nullable=False)
+    price: Mapped[float] = mapped_column(Numeric(18, 6), nullable=False)
+    shares: Mapped[float] = mapped_column(Numeric(18, 8), nullable=False)
+    cash_after: Mapped[float] = mapped_column(Numeric(18, 6), nullable=False)
+    position_shares_after: Mapped[float] = mapped_column(Numeric(18, 8), nullable=False)
+    realized_pnl: Mapped[float] = mapped_column(Numeric(18, 6), default=0, nullable=False)
+    exit_reason: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class PaperPortfolioSnapshot(Base):
+    __tablename__ = "paper_portfolio_snapshots"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
+    simulation_run_id: Mapped[str] = mapped_column(ForeignKey("paper_simulation_runs.id"))
+    snapshot_date: Mapped[date] = mapped_column(Date, nullable=False)
+    portfolio_value: Mapped[float] = mapped_column(Numeric(18, 6), nullable=False)
+    cash: Mapped[float] = mapped_column(Numeric(18, 6), nullable=False)
+    positions_value: Mapped[float] = mapped_column(Numeric(18, 6), nullable=False)
+    benchmark_symbol: Mapped[str | None] = mapped_column(String(32))
+    benchmark_value: Mapped[float | None] = mapped_column(Numeric(18, 6))
+    signal_snapshot_id: Mapped[str] = mapped_column(String(64), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

@@ -15,8 +15,11 @@ import { useEffect, useRef } from "react";
 
 export type ChartMarker = {
   time: string;
-  signal: "BUY" | "SELL" | "REDUCE";
-  text?: string;
+  signal: string;
+  position: "aboveBar" | "belowBar";
+  color: string;
+  shape: "arrowUp" | "arrowDown" | "circle" | "square";
+  text: string;
 };
 
 type Props = {
@@ -81,13 +84,11 @@ export default function CandlestickChart({ data, markers = [] }: Props) {
 }
 
 function toSeriesMarker(marker: ChartMarker): SeriesMarker<Time> {
-  const isBuy = marker.signal === "BUY";
   return {
     time: marker.time as Time,
-    position: isBuy ? "belowBar" : "aboveBar",
-    color: isBuy ? "#1f7a5c" : "#b42318",
-    shape: isBuy ? "arrowUp" : "arrowDown",
-    text: marker.text ?? marker.signal
+    position: marker.position,
+    color: marker.color,
+    shape: marker.shape,
+    text: marker.text
   };
 }
-

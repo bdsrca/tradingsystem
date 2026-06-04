@@ -118,21 +118,21 @@ Verification:
 
 Tasks:
 
-- [ ] Write failing tests for indicator calculations.
-- [ ] Implement indicators.
-- [ ] Write failing tests for baseline signal labels.
-- [ ] Implement baseline signal engine.
-- [ ] Write failing tests for immutable signal behavior.
-- [ ] Implement append-only signal storage.
-- [ ] Add a Phase 2 Alembic migration for fields and tables introduced after Phase 1: deterministic signal metadata, `paper_trades`, `paper_portfolio_snapshots`, realized outcome fields, and nullable `signals.disagreement_level`. Do not assume Phase 1 created these future fields.
-- [ ] Write failing tests for paper-trading rules.
-- [ ] Implement paper-trading simulator.
-- [ ] Keep Phase 2 paper validation based on deterministic baseline signals only. Kronos forecast overlays on paper charts are deferred until after Kronos integration.
-- [ ] Include `benchmark_symbol` and `benchmark_value` in `paper_portfolio_snapshots` during the initial schema, populated as `null` until benchmark comparison is implemented.
-- [ ] Include nullable `disagreement_level` on `signals` during the initial schema to avoid a later migration just for Phase 7 disagreement display.
-- [ ] Build paper validation page.
-- [ ] Add stock-detail signal markers.
-- [ ] Commit.
+- [x] Write failing tests for indicator calculations.
+- [x] Implement indicators.
+- [x] Write failing tests for baseline signal labels.
+- [x] Implement baseline signal engine.
+- [x] Write failing tests for immutable signal behavior.
+- [x] Implement append-only signal storage.
+- [x] Add a Phase 2 Alembic migration for fields and tables introduced after Phase 1: deterministic signal metadata, `paper_trades`, `paper_portfolio_snapshots`, realized outcome fields, and nullable `signals.disagreement_level`. Do not assume Phase 1 created these future fields.
+- [x] Write failing tests for paper-trading rules.
+- [x] Implement paper-trading simulator.
+- [x] Keep Phase 2 paper validation based on deterministic baseline signals only. Kronos forecast overlays on paper charts are deferred until after Kronos integration.
+- [x] Include `benchmark_symbol` and `benchmark_value` in `paper_portfolio_snapshots` during the initial schema, populated as `null` until benchmark comparison is implemented.
+- [x] Include nullable `disagreement_level` on `signals` during the initial schema to avoid a later migration just for Phase 7 disagreement display.
+- [x] Build paper validation page.
+- [x] Add stock-detail signal markers.
+- [x] Commit.
 
 ## Phase 3: Kronos Reuse-First Integration
 

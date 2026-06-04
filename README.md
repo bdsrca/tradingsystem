@@ -63,13 +63,17 @@ This project is reuse-first:
 
 ## Current Status
 
-The repository is in Phase 1 implementation:
+The repository is in Phase 2 implementation:
 
 - FastAPI service with health, watchlist CRUD, market-data read, and Twelve Data daily refresh endpoints.
-- Alembic Phase 1 schema for watchlist items, OHLCV bars, analysis runs, and signals.
+- Alembic schema for watchlist items, OHLCV bars, analysis runs, signals, paper trades, and portfolio snapshots.
 - US/Canada symbol normalization for common Yahoo-style and provider-style tickers.
 - Trading calendar abstraction for US and Canadian exchanges.
-- Next.js watchlist page and stock detail candlestick page using client-only Lightweight Charts.
+- Deterministic baseline indicators and signal engine.
+- Append-only signal insertion for reproducible paper validation.
+- Next.js watchlist, stock detail candlestick, signal marker, and paper validation pages.
+
+Phase 2 uses a pure pandas indicator implementation with pandas-ta-compatible column names. `pandas-ta` currently pulls a `numba` version that does not install under the local Python 3.14 environment, so the project avoids that runtime dependency until the package stack supports this interpreter cleanly.
 
 ## Local Quick Start
 
@@ -79,7 +83,7 @@ The repository is in Phase 1 implementation:
 4. Install Node dependencies: `npm install`.
 5. Run API tests: `npm run test:api`.
 6. Run web type checks: `npm run typecheck:web`.
-7. Apply the Phase 1 database migration from the repository root:
+7. Apply database migrations from the repository root:
 
 ```powershell
 $env:DATABASE_URL='sqlite+aiosqlite:///./trading_system.db'
@@ -95,7 +99,7 @@ $env:PYTHONPATH='apps/api;packages/data;packages/quant;packages/agents;packages/
 
 9. Start the web app from `apps/web`: `npx next dev --hostname 127.0.0.1 --port 3001`.
 
-The API health endpoint is `http://127.0.0.1:8000/health`. The web app is available at `http://127.0.0.1:3001`, with the watchlist at `/watchlist` and stock detail pages at `/stock/AAPL` or `/stock/SHOP?exchange=TSX`.
+The API health endpoint is `http://127.0.0.1:8000/health`. The web app is available at `http://127.0.0.1:3001`, with the watchlist at `/watchlist`, stock detail pages at `/stock/AAPL` or `/stock/SHOP?exchange=TSX`, and paper validation at `/paper/AAPL`.
 
 Set `TWELVE_DATA_API_KEY` before using `POST /market-data/{symbol}/refresh` against the live Twelve Data API.
 
