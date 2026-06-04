@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 const phaseCards = [
   {
     title: "Watchlist",
@@ -23,9 +25,12 @@ export default function Home() {
         </div>
         <div className="status" aria-label="Phase 0 status">
           <span className="status-dot" aria-hidden="true" />
-          Phase 0 shell
+          Phase 1 foundation
         </div>
       </header>
+      <nav className="home-nav" aria-label="Primary">
+        <Link href="/watchlist">Open Watchlist</Link>
+      </nav>
 
       <section className="grid" aria-label="Planned surfaces">
         {phaseCards.map((card) => (
@@ -38,4 +43,3 @@ export default function Home() {
     </main>
   );
 }
-

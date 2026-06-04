@@ -76,21 +76,21 @@ Verification:
 
 Tasks:
 
-- [ ] Write failing tests for symbol normalization: `AAPL`, `SHOP.TO`, `RY.TO`, provider-specific TSX symbols.
-- [ ] Implement symbol normalization.
-- [ ] Write failing migration tests or schema checks for watchlist and market bars.
-- [ ] Implement Alembic migrations.
-- [ ] Write failing API tests for watchlist CRUD.
-- [ ] Implement watchlist CRUD.
-- [ ] Write failing tests for Twelve Data adapter response parsing.
-- [ ] Implement Twelve Data adapter.
-- [ ] Write failing tests for NYSE/Nasdaq/TSX trading-day windows.
-- [ ] Implement calendar abstraction.
-- [ ] Build watchlist UI.
-- [ ] Build stock detail K-line chart with empty marker support.
-- [ ] Wrap every Lightweight Charts component in a client-only boundary. Components that reference `window`, DOM APIs, or `lightweight-charts` must live under `'use client'` and be loaded with Next.js `dynamic(..., { ssr: false })` from server-rendered routes.
-- [ ] Add a build/smoke check that would catch `window is not defined` errors from accidental server-side chart imports.
-- [ ] Commit.
+- [x] Write failing tests for symbol normalization: `AAPL`, `SHOP.TO`, `RY.TO`, provider-specific TSX symbols.
+- [x] Implement symbol normalization.
+- [x] Write failing migration tests or schema checks for watchlist and market bars.
+- [x] Implement Alembic migrations.
+- [x] Write failing API tests for watchlist CRUD.
+- [x] Implement watchlist CRUD.
+- [x] Write failing tests for Twelve Data adapter response parsing.
+- [x] Implement Twelve Data adapter.
+- [x] Write failing tests for NYSE/Nasdaq/TSX trading-day windows.
+- [x] Implement calendar abstraction.
+- [x] Build watchlist UI.
+- [x] Build stock detail K-line chart with empty marker support.
+- [x] Wrap every Lightweight Charts component in a client-only boundary. Components that reference `window`, DOM APIs, or `lightweight-charts` must live under `'use client'` and be loaded with Next.js `dynamic(..., { ssr: false })` from server-rendered routes.
+- [x] Add a build/smoke check that would catch `window is not defined` errors from accidental server-side chart imports.
+- [x] Commit.
 
 ## Phase 2: Deterministic Baseline Signals And Paper Validation
 

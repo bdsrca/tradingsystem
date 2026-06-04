@@ -63,19 +63,41 @@ This project is reuse-first:
 
 ## Current Status
 
-The repository is in Phase 0 implementation.
+The repository is in Phase 1 implementation:
 
-## Local Phase 0 Quick Start
+- FastAPI service with health, watchlist CRUD, market-data read, and Twelve Data daily refresh endpoints.
+- Alembic Phase 1 schema for watchlist items, OHLCV bars, analysis runs, and signals.
+- US/Canada symbol normalization for common Yahoo-style and provider-style tickers.
+- Trading calendar abstraction for US and Canadian exchanges.
+- Next.js watchlist page and stock detail candlestick page using client-only Lightweight Charts.
+
+## Local Quick Start
 
 1. Copy `.env.example` to `.env`.
-2. Create a Python virtual environment.
+2. Create and activate a Python virtual environment.
 3. Install Python dependencies: `python -m pip install -r requirements-dev.txt`.
 4. Install Node dependencies: `npm install`.
-5. Run API tests: `python -m pytest apps/api/tests packages/data/tests packages/quant/tests packages/agents/tests packages/email/tests workers/daily/tests`.
-6. Start the API from `apps/api`: `python -m uvicorn trading_system_api.main:app --host 127.0.0.1 --port 8000`.
-7. Start the web app from `apps/web`: `npx next dev --hostname 127.0.0.1 --port 3001`.
+5. Run API tests: `npm run test:api`.
+6. Run web type checks: `npm run typecheck:web`.
+7. Apply the Phase 1 database migration from the repository root:
 
-The API health endpoint is `http://127.0.0.1:8000/health`. The Phase 0 web shell is available at `http://127.0.0.1:3001`.
+```powershell
+$env:DATABASE_URL='sqlite+aiosqlite:///./trading_system.db'
+.\.venv\Scripts\python.exe -m alembic -c apps/api/alembic.ini upgrade head
+```
+
+8. Start the API from the repository root:
+
+```powershell
+$env:PYTHONPATH='apps/api;packages/data;packages/quant;packages/agents;packages/email;workers/daily'
+.\.venv\Scripts\python.exe -m uvicorn trading_system_api.main:app --host 127.0.0.1 --port 8000
+```
+
+9. Start the web app from `apps/web`: `npx next dev --hostname 127.0.0.1 --port 3001`.
+
+The API health endpoint is `http://127.0.0.1:8000/health`. The web app is available at `http://127.0.0.1:3001`, with the watchlist at `/watchlist` and stock detail pages at `/stock/AAPL` or `/stock/SHOP?exchange=TSX`.
+
+Set `TWELVE_DATA_API_KEY` before using `POST /market-data/{symbol}/refresh` against the live Twelve Data API.
 
 Primary design document:
 
