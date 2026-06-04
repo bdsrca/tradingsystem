@@ -184,13 +184,18 @@ Metrics:
 V1 simulation rules:
 
 - Initial capital defaults to 100,000.
-- Each `BUY` opens a fixed-size simulated position.
-- Each `SELL` exits the position.
-- Each `REDUCE` exits or reduces according to a simple configured rule.
+- Position sizing uses equal weight by default: 5% of total simulated capital per new position.
+- Each `BUY` opens a position only when the ticker has no currently open simulated position.
+- Repeated `BUY` signals for an already-open ticker are recorded as confirmations, not additional buys.
+- Each `SELL` exits the full simulated position.
+- Each `REDUCE` exits 50% of the simulated position.
 - `WATCH` and `HOLD` do not open new positions.
 - Maximum holding period defaults to 30 trading days.
+- Maximum open positions defaults to 20.
+- New positions are skipped when there is not enough simulated cash or the maximum open position count has been reached.
 - Stop/invalidation exits are simulated when historical price crosses the risk level.
 - Slippage and fees are configurable but simple.
+- Simulation assumptions are stored with each run so results are reproducible.
 
 This page is for validation only. It must not imply live trading execution.
 
@@ -225,6 +230,20 @@ Recommended top-level modules:
 - `workers/daily`: scheduled post-close analysis worker.
 - `infra`: Docker Compose and later cloud deployment configuration.
 
+### V1 Default Decisions
+
+To avoid blocking implementation on open architecture questions, V1 uses these defaults:
+
+- Primary market data provider: Twelve Data for daily OHLCV across US and Canadian tickers.
+- Supplemental data provider: Finnhub for company, fundamentals, and news context where available.
+- Canadian ticker display format: Yahoo-style symbols such as `SHOP.TO`; provider adapters translate to provider-specific formats such as `SHOP:TSX` when needed.
+- Kronos runtime: worker module in the Python analysis process, not a separate model service for V1.
+- Scheduler: APScheduler embedded in the local API/worker process.
+- Paper position sizing: equal weight, 5% of total simulated capital per new position.
+- Cloud access protection: HTTP Basic Auth through environment variables for single-user deployment, unless a stronger deployment-specific access layer is used.
+
+These defaults are intentionally simple. They can be replaced later without changing the product surface if the interfaces below remain stable.
+
 ### Local Runtime
 
 Local development should run through Docker Compose where practical:
@@ -250,14 +269,30 @@ The architecture should allow later cloud deployment:
 
 Kronos inference should not be assumed to fit normal serverless function limits.
 
+### Analysis Concurrency And Timeouts
+
+Daily analysis must complete within a practical post-close window. V1 should assume that Kronos can be slow on CPU and should not run all tickers in an unbounded serial loop.
+
+Rules:
+
+- The worker processes watchlist items through a bounded worker pool.
+- Kronos calls have a per-ticker timeout.
+- LLM calls have a per-agent timeout.
+- Provider calls have retries with backoff and rate-limit awareness.
+- If Kronos times out for a ticker, the run is marked degraded and falls back to a technical-indicator-only signal plus a clear explanation that Kronos was unavailable.
+- If the LLM layer times out, the run is marked degraded and uses deterministic summaries from computed data only.
+- Degraded runs must not trigger strong-signal emails unless explicitly allowed in settings.
+
+The system records per-step duration so slow providers, tickers, and agents can be identified.
+
 ## 6. Data Sources
 
 V1 should implement one primary market data provider plus a provider interface that allows swapping later.
 
 Candidate providers:
 
-- Alpha Vantage: supports US and Canadian exchange examples.
-- Twelve Data: supports symbols with exchange context, including TSX examples.
+- Twelve Data: V1 default for daily OHLCV, with explicit startup health checks for US and Canadian symbols.
+- Alpha Vantage: fallback source for development and comparison; free-tier rate limits make it unsuitable as the only provider for larger watchlists.
 - Finnhub: useful for company fundamentals, economic data, and news.
 - Polygon: strong US market data option; Canadian coverage and cost require separate verification before relying on it.
 
@@ -274,6 +309,8 @@ Required V1 data:
 - Symbol search or symbol validation.
 - Company name and exchange.
 - Market calendar or enough date handling to compute trading-day windows.
+- Provider health check for configured API keys.
+- Data freshness metadata.
 
 Useful later data:
 
@@ -283,6 +320,51 @@ Useful later data:
 - Analyst ratings.
 - Macro indicators.
 - Social sentiment.
+
+### Provider Health Checks
+
+The API or worker startup should verify configured providers before running analysis.
+
+Health check requirements:
+
+- Validate API key presence and basic connectivity.
+- Fetch one known US ticker sample.
+- Fetch one known Canadian ticker sample.
+- Confirm historical daily bar availability.
+- Report rate-limit or entitlement failures distinctly from network failures.
+- Store the latest provider health status for display in settings and worker error digests.
+
+The analysis worker should skip or degrade jobs when the required provider is unhealthy rather than producing unsupported conclusions.
+
+### Data Freshness
+
+Stored market bars must include:
+
+- `source_provider`
+- `source_symbol`
+- `data_source_version` when available
+- `fetched_at`
+- `bar_date`
+- `market`
+- `exchange`
+
+Freshness rules:
+
+- A ticker is fresh when the latest expected market bar for that ticker's exchange has been fetched within the configured freshness window.
+- `watchlist_items.data_stale_after_hours` controls the default refetch threshold.
+- US and Canadian tickers use their own exchange calendars before deciding whether a bar is missing or simply not expected due to a holiday.
+- Stale data is visible in the watchlist status column and prevents strong-signal alerts.
+
+### Trading Calendars
+
+The quant package must include a trading calendar abstraction for exchange-specific trading days.
+
+Requirements:
+
+- Distinguish NYSE/Nasdaq calendars from TSX calendars.
+- Compute 5, 10, 20, and 30 trading day forward windows using the correct exchange calendar.
+- Treat market holidays and early closes explicitly.
+- Prefer a maintained calendar library such as `pandas_market_calendars` where it fits the Python stack.
 
 ## 7. Signal Workflow
 
@@ -302,6 +384,32 @@ For each enabled watchlist item:
 10. Store analysis result and decision trace.
 11. Update paper validation results.
 12. Trigger email if alert conditions are met.
+
+### Kronos Forecast Contract
+
+Kronos output must be converted into a structured result before it enters the agent workflow.
+
+`KronosForecastResult`:
+
+- `ticker`
+- `analysis_date`
+- `horizon_days`
+- `direction`: `bullish`, `bearish`, or `neutral`
+- `magnitude_pct`: forecast return estimate for the horizon
+- `confidence`: normalized value from 0 to 1 when available
+- `forecast_close`
+- `forecast_low`
+- `forecast_high`
+- `volatility_note`
+- `model_name`
+- `model_version`
+- `runtime_ms`
+- `status`: `ok`, `timeout`, `error`, or `skipped`
+- `error_message`
+
+The technical analyst receives `KronosForecastResult` together with computed indicators. The final decision must preserve whether Kronos agreed or disagreed with the non-LLM technical signal.
+
+When Kronos and the final signal materially disagree, the UI should highlight the disagreement rather than hiding it.
 
 ### Signal Schema
 
@@ -341,6 +449,25 @@ The final signal should combine:
 
 The LLM should explain and adjudicate. It should not invent market data. All numerical claims must come from retrieved data or computed indicators.
 
+### Agent Prompt Guardrails
+
+Agent prompts must separate facts, computed values, and opinions.
+
+Required prompt blocks:
+
+- `[DATA]`: retrieved market, company, provider, and news records.
+- `[COMPUTED]`: indicators, Kronos result, paper validation metrics, and deterministic scores.
+- `[CONSTRAINTS]`: allowed signal labels, horizon, risk rules, and forbidden claims.
+- `[OPINION]`: the agent's interpretation.
+
+Rules:
+
+- Agents must not introduce new numerical facts that are absent from `[DATA]` or `[COMPUTED]`.
+- Agents must cite the field name or source block for important numerical claims.
+- The final explanation step includes a validation pass that checks generated numbers against structured input.
+- If the validator detects unsupported numbers or contradictions, the run is marked degraded and regenerated once with stricter instructions.
+- Prompt versions are recorded with each analysis run so future signal quality can be compared across prompt changes.
+
 ## 8. Data Model
 
 Core tables:
@@ -369,11 +496,49 @@ Fields:
 - `tags`
 - `alert_enabled`
 - `alert_threshold`
+- `data_stale_after_hours`
 - `created_at`
 - `updated_at`
 - `last_analyzed_at`
 
 Even though V1 is single-user, tables may include a nullable or default `user_id` only if it does not complicate the MVP. Do not build full authentication in V1.
+
+### analysis_runs
+
+Additional observability fields:
+
+- `job_id`
+- `status`
+- `degraded`
+- `degradation_reason`
+- `duration_seconds`
+- `data_fetch_duration_ms`
+- `kronos_duration_ms`
+- `llm_duration_ms`
+- `paper_validation_duration_ms`
+- `prompt_version`
+- `provider_health_snapshot`
+
+### paper_trades
+
+Fields should include enough information to reproduce validation results:
+
+- `simulation_run_id`
+- `ticker`
+- `entry_signal_id`
+- `exit_signal_id`
+- `entry_date`
+- `exit_date`
+- `entry_price`
+- `exit_price`
+- `position_sizing_method`
+- `position_size_pct`
+- `shares`
+- `fees`
+- `slippage`
+- `exit_reason`
+- `return_pct`
+- `holding_days`
 
 ## 9. Email Alerts
 
@@ -388,6 +553,7 @@ Strong signal criteria:
 - Signal is `BUY`, `SELL`, or `REDUCE`.
 - Confidence exceeds configured threshold.
 - Signal changed from prior run, or risk condition materially changed.
+- Run is not degraded, unless degraded alerts are explicitly enabled.
 
 Email content:
 
@@ -399,6 +565,21 @@ Email content:
 - Bear case.
 - Invalidation condition.
 - Link to local/cloud stock detail page.
+
+### Debounce And Aggregation
+
+The email system must avoid becoming noisy.
+
+Rules:
+
+- Strong signals from the same daily run are aggregated into one email.
+- The same ticker and same signal direction should not send repeated strong-signal emails within the configured debounce window.
+- Default debounce window is 5 trading days.
+- A materially changed signal can bypass debounce when confidence crosses a higher threshold or the signal direction changes.
+- Daily digest includes all watchlist outcomes, including skipped and degraded runs.
+- Error digest includes counts for succeeded, failed, skipped, stale-data, and degraded tickers.
+
+`email_notifications` should record ticker, signal direction, debounce key, sent status, and provider response metadata.
 
 ## 10. Error Handling
 
@@ -420,6 +601,35 @@ Behavior:
 - Do not send confident alerts from partial data.
 - Fall back from full agent analysis to deterministic technical-only summary only when explicitly marked as degraded.
 - Preserve enough logs for later debugging.
+
+### Worker Observability
+
+Workers must emit structured logs for each major step.
+
+Log fields:
+
+- `job_id`
+- `ticker`
+- `market`
+- `step`
+- `status`
+- `duration_ms`
+- `provider`
+- `degraded`
+- `error_code`
+
+Daily worker completion should produce a run summary:
+
+- Total tickers.
+- Succeeded.
+- Failed.
+- Skipped.
+- Degraded.
+- Stale data.
+- Strong signals generated.
+- Emails sent or suppressed by debounce.
+
+The summary should be visible in logs and included in the error digest when any run fails or degrades.
 
 ## 11. Testing And Verification
 
@@ -469,14 +679,22 @@ Success criteria:
 13. Email digest and alerting.
 14. Cloud deployment preparation.
 
-## 14. Open Decisions
+## 14. Deferred Decisions And Future Enhancements
 
-These can be decided during implementation planning:
+The major V1 defaults are defined in the architecture section. The remaining decisions can be finalized during implementation planning:
 
-- Primary V1 market data provider.
-- Exact provider symbol format for Canadian stocks.
-- Whether Kronos runs in-process, as a worker module, or as a separate model service.
-- Whether to use Redis/RQ/Celery immediately or start with a simpler scheduler.
-- Exact default paper-trading position size and stop logic.
-- Whether to include authentication for cloud deployment or use network-level access control first.
+- Exact Twelve Data symbol mapping rules for each Canadian exchange edge case.
+- Whether Finnhub is required in V1 or enabled only when credentials exist.
+- Exact Kronos timeout value after measuring local hardware performance.
+- Whether degraded technical-only runs should be allowed to appear as `WATCH` or `HOLD` only.
+- Exact chart overlays enabled by default.
+- Whether cloud deployment uses Basic Auth only or sits behind a private network/VPN.
 
+Future enhancements to preserve in the design:
+
+- Signal consistency checks when Kronos and the final agent decision disagree.
+- Forecast accuracy tracking that compares predicted prices with actual 5, 10, 20, and 30 trading day outcomes.
+- Prompt A/B testing using recorded prompt versions.
+- More detailed tag-based watchlist runs.
+- Volatility-adjusted paper-trading position sizing.
+- Full broker paper account integration after the signal engine proves useful.
