@@ -179,8 +179,11 @@ Deliverables:
 - Data snapshot contract for all agent inputs.
 - TradingAgents dependency pinned to a specific commit or version.
 - Dependency lock/conflict check with Kronos and TradingAgents active together.
-- TradingAgents component integration or compatibility wrapper.
+- TradingAgents component integration in the main Python environment if dependency checks pass.
+- TradingAgents vendor bridge registered through upstream vendor routing where available.
 - Agent data tool wrapping/disablement so agents do not fetch conflicting prices.
+- No-network guard proving agent runs do not call yfinance or external market-data providers outside the platform snapshot.
+- Async runner that wraps synchronous TradingAgents graph execution with an executor or worker boundary.
 - LangGraph checkpoint pointer support.
 - Decision memory compatible with TradingAgents-style memory.
 - Prompt guardrail validator.
@@ -190,25 +193,32 @@ Verification:
 - LLM connectivity test passes for configured provider.
 - Dependency lock succeeds with the selected TradingAgents commit and Kronos integration strategy.
 - Agent run consumes a frozen data snapshot.
+- Agent workflow tests fail if yfinance or other external market-data calls escape the snapshot layer.
 - Unsupported numbers in LLM output are flagged degraded.
-- Checkpoint metadata is stored as a pointer, not mixed blobs.
+- Checkpoint metadata is stored as a pointer, not mixed blobs, and checkpoint support is not claimed while upstream checkpointing is disabled.
 - Decision memory can inject prior lessons.
 
 Tasks:
 
 - [ ] Pin TradingAgents to a specific commit or version before importing its components.
 - [ ] Run dependency conflict checks with Kronos and TradingAgents enabled together.
+- [ ] Inventory TradingAgents internal external-data tools before enabling workflow tests. At the pinned commit this must include `tradingagents/dataflows/interface.py`, `VENDOR_METHODS`, `route_to_vendor()`, and the direct yfinance paths in `tradingagents/graph/trading_graph.py`.
+- [ ] Record the direct yfinance escape-path decision in `CONTRIBUTING.md`: `_fetch_returns()` is disabled or wrapped for Phase 4 agent runs, and `resolve_instrument_identity()` must use stored metadata or fail open without network by default.
+- [ ] Write failing tests for registering a platform vendor through TradingAgents' vendor-routing layer.
+- [ ] Implement the platform vendor bridge for snapshot-backed market data, indicators, fundamentals, and news where the upstream method shape allows it.
+- [ ] Write failing no-network tests that make yfinance/external market-data calls fail during agent workflow execution.
+- [ ] Implement data-tool wrappers and escape-path guards before constructing the TradingAgents workflow in tests.
 - [ ] Write failing tests for provider config and Ollama base URL.
 - [ ] Implement LLM provider adapter.
 - [ ] Write failing tests for agent data anchoring.
 - [ ] Implement snapshot-to-agent input adapter.
-- [ ] Inventory TradingAgents internal external-data tools, especially yfinance-backed calls, before enabling the workflow.
-- [ ] Write failing tests for disabling conflicting external data pulls.
-- [ ] Implement data-tool wrappers.
+- [ ] Write failing tests for async runner timeout/degraded behavior around synchronous TradingAgents graph execution.
+- [ ] Implement the TradingAgents runner with `run_in_executor` or an equivalent worker boundary.
 - [ ] Integrate or wrap TradingAgents analyst workflow only after the external-data inventory and wrappers are in place, so test runs cannot leak live yfinance/provider calls.
 - [ ] Write failing tests for hallucination validator.
 - [ ] Implement validator and one retry path.
-- [ ] Add checkpoint pointer support.
+- [ ] Add Phase 4 Alembic migration for data snapshot IDs, agent report storage, checkpoint pointer metadata, and prompt/model version fields introduced after Phase 3.
+- [ ] Add checkpoint pointer support by reusing upstream LangGraph/SQLite checkpointing; do not mark checkpoint support complete if `checkpoint_enabled` remains disabled.
 - [ ] Add decision memory persistence.
 - [ ] Commit.
 

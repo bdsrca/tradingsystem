@@ -71,6 +71,10 @@ Reuse policy:
 - Reuse or remain compatible with its persistent decision memory format and behavior.
 - Reuse its LLM provider configuration patterns where they fit the local/cloud deployment plan.
 - Wrap or disable internal external-data tools when necessary so agents consume this platform's verified data snapshot.
+- Prefer registering a platform data vendor through TradingAgents' own vendor-routing layer when available, rather than broad monkey-patching.
+- Any direct upstream yfinance escape paths must be inventoried and either disabled, wrapped, or guarded by no-network tests before enabling the analyst workflow.
+- TradingAgents should run in the main application Python environment for V1 if dependency dry-run checks pass; unlike Kronos, it does not require a separate model service by default.
+- Synchronous upstream graph calls must be executed through an executor or worker boundary so FastAPI's event loop is not blocked.
 
 Primary use:
 
@@ -284,6 +288,10 @@ Rules:
 - Agents receive structured market, company, indicator, Kronos, and news inputs from the analysis snapshot.
 - Agents must not independently fetch Yahoo Finance, Alpha Vantage, or other external market data during a run.
 - If an upstream TradingAgents component is reused, its data tools must be wrapped or disabled so all numerical inputs come from the platform snapshot.
+- The default Phase 4 test environment must fail if a TradingAgents run attempts live yfinance/network market-data calls.
+- TradingAgents' vendor routing should register a platform vendor that serves snapshot-backed market data, indicators, fundamentals, and news where supported.
+- Direct yfinance paths outside vendor routing, including realized-return helpers and instrument-identity helpers, must be explicitly handled before agent workflow tests are allowed to pass.
+- Company identity may fail open to stored metadata or an empty value, but it must not silently perform live network lookup by default.
 - Snapshot metadata records the provider, symbol mapping, fetch time, adjustment mode, and calendar used.
 - If a supplemental provider is used for fundamentals or news, that data is stored in the snapshot before agent execution and labeled with its source.
 
@@ -512,6 +520,8 @@ Requirements:
 - A failed per-ticker job should resume from the latest safe checkpoint when retried.
 - Completed analyst reports should not be regenerated unnecessarily after a downstream debate or portfolio-manager failure.
 - Checkpoint metadata must include prompt versions and data snapshot IDs so resumed runs do not mix old prompts with new data.
+- Phase 4 should not claim checkpoint support while `checkpoint_enabled` is disabled. Either enable upstream checkpointing with stored pointer metadata or mark checkpoint support as deferred.
+- Checkpoint setup belongs in Python code, not a shell-only initialization script, because the upstream checkpointer setup path may be asynchronous or context-managed.
 
 ### Decision Memory
 

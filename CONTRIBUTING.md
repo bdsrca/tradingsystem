@@ -46,6 +46,28 @@ repository's own dependencies enabled together. TradingAgents internal external
 data calls must be inventoried and wrapped or disabled before analyst workflow
 tests run.
 
+At the pinned commit, TradingAgents exposes `VENDOR_METHODS` and
+`route_to_vendor()` in `tradingagents/dataflows/interface.py`. Phase 4 should
+prefer registering a platform vendor there so analyst tools read this
+platform's frozen data snapshot instead of monkey-patching broad internals.
+
+Known direct yfinance escape paths at the pinned commit:
+
+- `tradingagents/graph/trading_graph.py::_fetch_returns()`
+- `tradingagents/graph/trading_graph.py::resolve_instrument_identity()`
+
+The Phase 4 default is no live market-data network calls during an agent run.
+Tests should fail if yfinance or another external market-data source is reached
+outside the platform snapshot. Company identity can fail open to stored metadata
+or an empty value, but it should not silently perform live network lookup by
+default.
+
+TradingAgents can run in the main Python environment if dependency dry-run
+checks pass. Its synchronous graph execution must be wrapped with an executor or
+worker boundary before exposing it from FastAPI. Checkpoint support should reuse
+the upstream LangGraph/SQLite saver and store only checkpoint pointer metadata
+in this platform's database.
+
 ## Local Development
 
 1. Copy `.env.example` to `.env`.
