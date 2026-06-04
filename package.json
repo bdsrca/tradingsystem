@@ -1,0 +1,16 @@
+{
+  "name": "trading-system",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace @tradingsystem/web",
+    "build:web": "npm run build --workspace @tradingsystem/web",
+    "typecheck:web": "npm run typecheck --workspace @tradingsystem/web",
+    "test:api": "python -m pytest apps/api/tests packages/data/tests packages/quant/tests packages/agents/tests packages/email/tests workers/daily/tests",
+    "check": "npm run typecheck:web && npm run test:api"
+  }
+}
+

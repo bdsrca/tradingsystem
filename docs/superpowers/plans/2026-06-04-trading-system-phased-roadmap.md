@@ -35,19 +35,19 @@ Verification:
 
 Tasks:
 
-- [ ] Scaffold repository structure: `apps/web`, `apps/api`, `packages/data`, `packages/quant`, `packages/agents`, `packages/email`, `workers/daily`, `infra`.
-- [ ] Add Python project tooling for FastAPI and shared packages.
-- [ ] Add Node project tooling for Next.js.
-- [ ] Add Docker Compose with Postgres.
-- [ ] Add `.env.example`.
-- [ ] Document the Kronos integration strategy in `CONTRIBUTING.md`. Default to `vendor/Kronos` or a Git submodule unless a standard package install is verified; Kronos currently should not be assumed to support `pip install git+...` from a `pyproject.toml`.
-- [ ] Add explicit configuration for the chosen Kronos source path or pinned commit in Python configuration and Docker build notes.
-- [ ] Pin the intended TradingAgents source to a specific commit or version in the dependency plan.
-- [ ] Run an initial dependency conflict check plan for Kronos, TradingAgents, LangGraph, LangChain, pandas, yfinance, and FastAPI. The actual lock can be finalized when dependencies are added, but the integration constraints must be visible from Phase 0.
-- [ ] Add API health endpoint.
-- [ ] Add web shell page.
-- [ ] Add initial smoke tests.
-- [ ] Commit.
+- [x] Scaffold repository structure: `apps/web`, `apps/api`, `packages/data`, `packages/quant`, `packages/agents`, `packages/email`, `workers/daily`, `infra`.
+- [x] Add Python project tooling for FastAPI and shared packages.
+- [x] Add Node project tooling for Next.js.
+- [x] Add Docker Compose with Postgres.
+- [x] Add `.env.example`.
+- [x] Document the Kronos integration strategy in `CONTRIBUTING.md`. Default to `vendor/Kronos` or a Git submodule unless a standard package install is verified; Kronos currently should not be assumed to support `pip install git+...` from a `pyproject.toml`.
+- [x] Add explicit configuration for the chosen Kronos source path or pinned commit in Python configuration and Docker build notes.
+- [x] Pin the intended TradingAgents source to a specific commit or version in the dependency plan.
+- [x] Run an initial dependency conflict check plan for Kronos, TradingAgents, LangGraph, LangChain, pandas, yfinance, and FastAPI. The actual lock can be finalized when dependencies are added, but the integration constraints must be visible from Phase 0.
+- [x] Add API health endpoint.
+- [x] Add web shell page.
+- [x] Add initial smoke tests.
+- [x] Commit.
 
 ## Phase 1: Database, Watchlist, Market Data, And Candlestick UI
 

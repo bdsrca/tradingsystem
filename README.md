@@ -63,7 +63,19 @@ This project is reuse-first:
 
 ## Current Status
 
-The repository is in design/specification stage.
+The repository is in Phase 0 implementation.
+
+## Local Phase 0 Quick Start
+
+1. Copy `.env.example` to `.env`.
+2. Create a Python virtual environment.
+3. Install Python dependencies: `python -m pip install -r requirements-dev.txt`.
+4. Install Node dependencies: `npm install`.
+5. Run API tests: `python -m pytest apps/api/tests packages/data/tests packages/quant/tests packages/agents/tests packages/email/tests workers/daily/tests`.
+6. Start the API from `apps/api`: `python -m uvicorn trading_system_api.main:app --host 127.0.0.1 --port 8000`.
+7. Start the web app from `apps/web`: `npx next dev --hostname 127.0.0.1 --port 3001`.
+
+The API health endpoint is `http://127.0.0.1:8000/health`. The Phase 0 web shell is available at `http://127.0.0.1:3001`.
 
 Primary design document:
 

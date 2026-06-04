@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trading-system"
+version = "0.1.0"
+description = "Local-first stock signal and explanation platform."
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn[standard]>=0.32,<1",
+  "pydantic-settings>=2.6,<3",
+  "sqlalchemy>=2.0,<3",
+  "asyncpg>=0.30,<1",
+  "alembic>=1.14,<2",
+  "apscheduler>=3.10,<4",
+  "httpx>=0.27,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3,<9",
+  "pytest-asyncio>=0.24,<1",
+  "ruff>=0.8,<1",
+]
+
+[tool.setuptools.packages.find]
+where = [
+  "apps/api",
+  "packages/data",
+  "packages/quant",
+  "packages/agents",
+  "packages/email",
+  "workers/daily",
+]
+
+[tool.pytest.ini_options]
+pythonpath = [
+  "apps/api",
+  "packages/data",
+  "packages/quant",
+  "packages/agents",
+  "packages/email",
+  "workers/daily",
+]
+testpaths = [
+  "apps/api/tests",
+  "packages/data/tests",
+  "packages/quant/tests",
+  "packages/agents/tests",
+  "packages/email/tests",
+  "workers/daily/tests",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
