@@ -109,3 +109,31 @@ class PaperRunRead(BaseModel):
     signal_snapshot: dict
     metrics: PaperMetricsRead
     snapshots: list[PaperSnapshotRead]
+
+
+class KronosHorizonRead(BaseModel):
+    horizon_days: int
+    expected_return_pct: float
+    direction: str
+    confidence: float
+    forecast_close: float
+    forecast_low: float
+    forecast_high: float
+
+
+class KronosForecastRead(BaseModel):
+    id: str | None = None
+    ticker: str
+    exchange: str
+    analysis_date: str
+    lookback_bars: int
+    sample_count: int
+    horizons: list[KronosHorizonRead]
+    forecast_path: list[dict]
+    volatility_note: str | None
+    model_name: str
+    model_version: str
+    runtime_ms: int
+    status: str
+    is_fallback: bool
+    error_message: str | None

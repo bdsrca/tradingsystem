@@ -9,8 +9,7 @@
     "dev:web": "npm run dev --workspace @tradingsystem/web",
     "build:web": "npm run build --workspace @tradingsystem/web",
     "typecheck:web": "npm run typecheck --workspace @tradingsystem/web",
-    "test:api": "python -m pytest apps/api/tests packages/data/tests packages/quant/tests packages/agents/tests packages/email/tests workers/daily/tests",
+    "test:api": "python -m pytest apps/api/tests packages/data/tests packages/quant/tests packages/agents/tests packages/email/tests services/kronos_service/tests workers/daily/tests",
     "check": "npm run typecheck:web && npm run test:api"
   }
 }
-

@@ -31,10 +31,20 @@ export default function AnalyzeControls({ ticker, exchange }: Props) {
     window.location.href = `/paper/${ticker}${analysisQuery}`;
   }
 
+  async function runKronos() {
+    setStatus("Running Kronos");
+    await fetchJson(`/kronos/${ticker}/forecast${analysisQuery}`, { method: "POST" });
+    setStatus("Kronos forecast saved");
+    window.location.reload();
+  }
+
   return (
     <div className="action-row">
       <button onClick={runBaseline} type="button">
         Run baseline
+      </button>
+      <button onClick={runKronos} type="button">
+        Run Kronos
       </button>
       <button onClick={runPaper} type="button">
         Run paper 1Y

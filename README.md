@@ -39,6 +39,7 @@ Planned modules:
 - `packages/quant`: indicators, calendars, Kronos adapter, paper-validation.
 - `packages/agents`: LLM and TradingAgents integration.
 - `packages/email`: digest and alert delivery.
+- `services/kronos_service`: optional local/remote HTTP wrapper around upstream Kronos.
 - `infra`: local Docker and deployment configuration.
 
 V1 runs as a combined API/worker process with APScheduler in the FastAPI lifespan. Cloud deployment can later split API and worker services after a Postgres-backed job table or queue exists.
@@ -63,17 +64,19 @@ This project is reuse-first:
 
 ## Current Status
 
-The repository is in Phase 2 implementation:
+The repository is in Phase 3 implementation:
 
 - FastAPI service with health, watchlist CRUD, market-data read, and Twelve Data daily refresh endpoints.
-- Alembic schema for watchlist items, OHLCV bars, analysis runs, signals, paper trades, and portfolio snapshots.
+- Alembic schema for watchlist items, OHLCV bars, analysis runs, signals, paper trades, portfolio snapshots, and Kronos forecasts.
 - US/Canada symbol normalization for common Yahoo-style and provider-style tickers.
 - Trading calendar abstraction for US and Canadian exchanges.
 - Deterministic baseline indicators and signal engine.
 - Append-only signal insertion for reproducible paper validation.
-- Next.js watchlist, stock detail candlestick, signal marker, and paper validation pages.
+- Kronos input preparation, batch-shape grouping, minimum-history checks, timeout fallback, and output adaptation.
+- Optional Kronos HTTP service wrapper that imports upstream Kronos from `KRONOS_SOURCE_PATH`.
+- Next.js watchlist, stock detail candlestick, signal marker, Kronos forecast overlay, and paper validation pages.
 
-Phase 2 uses a pure pandas indicator implementation with pandas-ta-compatible column names. `pandas-ta` currently pulls a `numba` version that does not install under the local Python 3.14 environment, so the project avoids that runtime dependency until the package stack supports this interpreter cleanly.
+The deterministic baseline uses a pure pandas indicator implementation with pandas-ta-compatible column names. `pandas-ta` currently pulls a `numba` version that does not install under the local Python 3.14 environment, so the project avoids that runtime dependency until the package stack supports this interpreter cleanly.
 
 ## Local Quick Start
 
@@ -102,6 +105,12 @@ $env:PYTHONPATH='apps/api;packages/data;packages/quant;packages/agents;packages/
 The API health endpoint is `http://127.0.0.1:8000/health`. The web app is available at `http://127.0.0.1:3001`, with the watchlist at `/watchlist`, stock detail pages at `/stock/AAPL` or `/stock/SHOP?exchange=TSX`, and paper validation at `/paper/AAPL`.
 
 Set `TWELVE_DATA_API_KEY` before using `POST /market-data/{symbol}/refresh` against the live Twelve Data API.
+
+To use Kronos forecasts, run a Kronos service separately and set
+`KRONOS_SERVICE_URL`. See
+[`services/kronos_service/README.md`](services/kronos_service/README.md).
+Without that service, `POST /kronos/{symbol}/forecast` stores a degraded
+fallback result instead of blocking the baseline workflow.
 
 Primary design document:
 

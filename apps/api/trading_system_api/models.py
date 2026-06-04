@@ -160,3 +160,24 @@ class PaperPortfolioSnapshot(Base):
     benchmark_value: Mapped[float | None] = mapped_column(Numeric(18, 6))
     signal_snapshot_id: Mapped[str] = mapped_column(String(64), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class KronosForecast(Base):
+    __tablename__ = "kronos_forecasts"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
+    ticker: Mapped[str] = mapped_column(String(32), nullable=False)
+    exchange: Mapped[str] = mapped_column(String(32), nullable=False)
+    analysis_date: Mapped[date] = mapped_column(Date, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    model_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    model_version: Mapped[str] = mapped_column(String(128), nullable=False)
+    lookback_bars: Mapped[int] = mapped_column(Integer, nullable=False)
+    sample_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    runtime_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    horizons: Mapped[list] = mapped_column(JSON, nullable=False)
+    forecast_path: Mapped[list] = mapped_column(JSON, nullable=False)
+    volatility_note: Mapped[str | None] = mapped_column(String(128))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    is_fallback: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

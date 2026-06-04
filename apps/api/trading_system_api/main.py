@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from trading_system_api.routers import analysis, market_data, paper, signals, watchlist
+from trading_system_api.routers import analysis, kronos, market_data, paper, signals, watchlist
 
 
 def create_app() -> FastAPI:
@@ -28,6 +28,7 @@ def create_app() -> FastAPI:
     app.include_router(analysis.router)
     app.include_router(signals.router)
     app.include_router(paper.router)
+    app.include_router(kronos.router)
 
     return app
 

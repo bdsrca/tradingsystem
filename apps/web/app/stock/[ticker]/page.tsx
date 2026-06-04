@@ -2,7 +2,12 @@ import Link from "next/link";
 
 import AnalyzeControls from "../../../components/AnalyzeControls";
 import CandlestickChart from "../../../components/chart/CandlestickChartLoader";
-import { fetchJson, type PriceBar, type SignalMarker } from "../../../lib/api";
+import {
+  fetchJson,
+  type KronosForecast,
+  type PriceBar,
+  type SignalMarker
+} from "../../../lib/api";
 
 type Props = {
   params: Promise<{ ticker: string }>;
@@ -17,6 +22,7 @@ export default async function StockDetailPage({ params, searchParams }: Props) {
   const query = exchange ? `?exchange=${encodeURIComponent(exchange)}` : "";
   let bars: PriceBar[] = [];
   let markers: SignalMarker[] = [];
+  let kronos: KronosForecast | null = null;
 
   try {
     bars = await fetchJson<PriceBar[]>(`/market-data/${ticker.toUpperCase()}/bars${query}`, {
@@ -31,6 +37,13 @@ export default async function StockDetailPage({ params, searchParams }: Props) {
     });
   } catch {
     markers = [];
+  }
+  try {
+    kronos = await fetchJson<KronosForecast>(`/kronos/${ticker.toUpperCase()}/latest${query}`, {
+      cache: "no-store"
+    });
+  } catch {
+    kronos = null;
   }
 
   return (
@@ -54,7 +67,18 @@ export default async function StockDetailPage({ params, searchParams }: Props) {
 
       <section className="chart-section" aria-label={`${ticker} candlestick chart`}>
         {bars.length > 0 ? (
-          <CandlestickChart data={bars} markers={markers} />
+          <CandlestickChart
+            data={bars}
+            forecastPath={
+              kronos?.status === "ok"
+                ? kronos.forecast_path.map((point) => ({
+                    time: point.time,
+                    value: point.close
+                  }))
+                : []
+            }
+            markers={markers}
+          />
         ) : (
           <div className="chart-empty">
             <h2>No OHLCV bars yet</h2>
@@ -62,6 +86,18 @@ export default async function StockDetailPage({ params, searchParams }: Props) {
           </div>
         )}
       </section>
+
+      {kronos ? (
+        <section className="forecast-note" aria-label="Kronos forecast summary">
+          <h2>Kronos</h2>
+          <p>
+            {kronos.status === "ok"
+              ? `20D ${kronos.horizons.find((item) => item.horizon_days === 20)?.direction ?? "neutral"} forecast.`
+              : `Kronos ${kronos.status}: ${kronos.error_message ?? "unavailable"}`}
+          </p>
+          <p>Cross-market transfer forecast; exchange-specific accuracy not yet validated.</p>
+        </section>
+      ) : null}
     </main>
   );
 }

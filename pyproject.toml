@@ -35,6 +35,7 @@ where = [
   "packages/quant",
   "packages/agents",
   "packages/email",
+  "services/kronos_service",
   "workers/daily",
 ]
 
@@ -45,6 +46,7 @@ pythonpath = [
   "packages/quant",
   "packages/agents",
   "packages/email",
+  "services/kronos_service",
   "workers/daily",
 ]
 testpaths = [
@@ -53,6 +55,7 @@ testpaths = [
   "packages/quant/tests",
   "packages/agents/tests",
   "packages/email/tests",
+  "services/kronos_service/tests",
   "workers/daily/tests",
 ]
 

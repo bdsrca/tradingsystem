@@ -16,8 +16,18 @@ The default Phase 0 assumption is `vendor/Kronos` or a Git submodule pinned to:
 
 Kronos currently should not be assumed to support a standard `pip install git+...`
 workflow because the upstream repository does not expose a `pyproject.toml`,
-`setup.py`, or `setup.cfg` at the checked revision. Docker and Python path
-configuration must account for the chosen local source path.
+`setup.py`, or `setup.cfg` at the checked revision.
+
+As of Phase 3, the main API does not import PyTorch or Kronos directly. It uses
+`packages/quant/trading_system_quant/kronos/client.py` to call a separate
+`services/kronos_service` HTTP wrapper. The wrapper imports upstream Kronos from
+`KRONOS_SOURCE_PATH` and calls `KronosPredictor.predict(...)`. This keeps model
+runtime dependencies isolated while preserving reuse of upstream forecasting
+logic.
+
+Do not reimplement Kronos model inference in this repository. Product-specific
+code should stay limited to data preparation, future trading-day timestamps,
+batch grouping, timeout/fallback behavior, output adaptation, storage, and UI.
 
 ### TradingAgents
 

@@ -33,6 +33,32 @@ export type SignalMarker = {
   text: string;
 };
 
+export type KronosForecastPoint = {
+  time: string;
+  close: number;
+};
+
+export type KronosForecast = {
+  id: string | null;
+  ticker: string;
+  exchange: string;
+  analysis_date: string;
+  status: string;
+  is_fallback: boolean;
+  error_message: string | null;
+  volatility_note: string | null;
+  forecast_path: KronosForecastPoint[];
+  horizons: Array<{
+    horizon_days: number;
+    expected_return_pct: number;
+    direction: string;
+    confidence: number;
+    forecast_close: number;
+    forecast_low: number;
+    forecast_high: number;
+  }>;
+};
+
 export type PaperSnapshot = {
   time: string;
   portfolio_value: number;

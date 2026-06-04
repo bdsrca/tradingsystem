@@ -5,9 +5,11 @@ import {
   ColorType,
   createChart,
   createSeriesMarkers,
+  LineSeries,
   type CandlestickData,
   type IChartApi,
   type ISeriesApi,
+  type LineData,
   type SeriesMarker,
   type Time
 } from "lightweight-charts";
@@ -25,9 +27,10 @@ export type ChartMarker = {
 type Props = {
   data: CandlestickData<Time>[];
   markers?: ChartMarker[];
+  forecastPath?: LineData<Time>[];
 };
 
-export default function CandlestickChart({ data, markers = [] }: Props) {
+export default function CandlestickChart({ data, markers = [], forecastPath = [] }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -64,6 +67,16 @@ export default function CandlestickChart({ data, markers = [] }: Props) {
 
     series.setData(data);
     createSeriesMarkers(series, markers.map(toSeriesMarker));
+
+    if (forecastPath.length > 0) {
+      const forecastSeries = chart.addSeries(LineSeries, {
+        color: "#315efb",
+        lineWidth: 2,
+        priceLineVisible: false
+      });
+      forecastSeries.setData(forecastPath);
+    }
+
     chart.timeScale().fitContent();
 
     const resizeObserver = new ResizeObserver((entries) => {
@@ -78,7 +91,7 @@ export default function CandlestickChart({ data, markers = [] }: Props) {
       resizeObserver.disconnect();
       chart.remove();
     };
-  }, [data, markers]);
+  }, [data, forecastPath, markers]);
 
   return <div className="chart-frame" ref={containerRef} />;
 }

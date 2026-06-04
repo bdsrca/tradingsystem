@@ -157,17 +157,17 @@ Verification:
 
 Tasks:
 
-- [ ] Implement the Kronos dependency strategy chosen in Phase 0. Do not re-decide the strategy here unless Phase 0's assumption is proven invalid.
-- [ ] If Kronos is vendored or added as a submodule, add exact source commit metadata and Docker path configuration before model integration begins.
-- [ ] Write failing test for `test_kronos_batch_grouping_by_lookback_length()`.
-- [ ] Implement batch grouping.
-- [ ] Write failing tests for minimum history and short-history fallback.
-- [ ] Implement Kronos eligibility checks.
-- [ ] Write failing tests for Kronos DataFrame to `KronosForecastResult`.
-- [ ] Implement `KronosOutputAdapter`.
-- [ ] Add timeout/degraded behavior.
-- [ ] Add forecast overlay UI.
-- [ ] Commit.
+- [x] Implement the Kronos dependency strategy chosen in Phase 0. Do not re-decide the strategy here unless Phase 0's assumption is proven invalid. Phase 3 uses a separate HTTP wrapper around pinned upstream Kronos so the main API does not import PyTorch.
+- [x] Record that Kronos is not vendored into the main app in Phase 3; `services/kronos_service` imports upstream source from `KRONOS_SOURCE_PATH`, pinned by `KRONOS_GIT_REF`.
+- [x] Write failing test for `test_kronos_batch_grouping_by_lookback_length()`.
+- [x] Implement batch grouping.
+- [x] Write failing tests for minimum history and short-history fallback.
+- [x] Implement Kronos eligibility checks.
+- [x] Write failing tests for Kronos DataFrame to `KronosForecastResult`.
+- [x] Implement `KronosOutputAdapter`.
+- [x] Add timeout/degraded behavior.
+- [x] Add forecast overlay UI.
+- [x] Commit.
 
 ## Phase 4: LLM Provider And TradingAgents Reuse-First Integration
 
