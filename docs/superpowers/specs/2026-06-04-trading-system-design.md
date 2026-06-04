@@ -39,9 +39,18 @@ The first version does not provide real-time intraday signals, broker integratio
 
 ## 3. Reference Projects
 
+The implementation should be reuse-first. Kronos and TradingAgents are not just visual or conceptual references; they are upstream logic providers that should be integrated directly where practical. The project should avoid clean-room rewrites of their forecasting model, agent graph, checkpointing, memory, or provider abstractions unless direct reuse proves incompatible with the product constraints.
+
 ### Kronos
 
 Kronos is used as the market time-series forecast component. It is a financial K-line foundation model designed around OHLCV-style market sequences. In this product, Kronos should act as one quantitative analyst, not the final trading decision maker.
+
+Reuse policy:
+
+- Use Kronos model/tokenizer/predictor code directly when dependency and license constraints allow it.
+- Do not reimplement Kronos forecasting logic.
+- Add only the product integration layers required for this system: data preparation, batch grouping, timeout handling, cache, `KronosOutputAdapter`, and UI display.
+- Keep Kronos-specific assumptions isolated so future upstream changes can be adopted with minimal local rewrite.
 
 Primary use:
 
@@ -53,7 +62,15 @@ Reference: https://github.com/shiyu-coder/Kronos
 
 ### TradingAgents
 
-TradingAgents is used as the inspiration for the explanation and decision workflow. The system should not blindly copy every agent, but should preserve the useful structure: specialized analysts, bull/bear debate, risk review, and final decision.
+TradingAgents is used as the primary upstream source for the explanation and decision workflow. The system should preserve and reuse its useful logic: specialized analysts, bull/bear debate, risk review, checkpoint resume, persistent decision memory, and final portfolio-manager decision.
+
+Reuse policy:
+
+- Prefer integrating TradingAgents components over reimplementing the agent workflow.
+- Reuse or remain compatible with its LangGraph checkpoint approach where practical.
+- Reuse or remain compatible with its persistent decision memory format and behavior.
+- Reuse its LLM provider configuration patterns where they fit the local/cloud deployment plan.
+- Wrap or disable internal external-data tools when necessary so agents consume this platform's verified data snapshot.
 
 Primary use:
 

@@ -17,7 +17,7 @@ V1 targets:
 - Explanations showing the decision path, risks, and invalidation conditions.
 - Optional remote LLM API or local Ollama model.
 - Kronos-based forecast input with conservative weighting until exchange-specific validation is complete.
-- TradingAgents-style analyst workflow with data-snapshot anchoring.
+- TradingAgents-based analyst workflow with data-snapshot anchoring.
 - Email digest and debounced strong-signal alerts.
 - 1-3 year paper-validation using frozen historical signals.
 
@@ -37,11 +37,19 @@ Planned modules:
 - `workers/daily`: scheduled analysis runner.
 - `packages/data`: market data providers and snapshot cache.
 - `packages/quant`: indicators, calendars, Kronos adapter, paper-validation.
-- `packages/agents`: LLM and TradingAgents-style workflows.
+- `packages/agents`: LLM and TradingAgents integration.
 - `packages/email`: digest and alert delivery.
 - `infra`: local Docker and deployment configuration.
 
 V1 runs as a combined API/worker process with APScheduler in the FastAPI lifespan. Cloud deployment can later split API and worker services after a Postgres-backed job table or queue exists.
+
+## Upstream Integration
+
+This project is reuse-first:
+
+- Use Kronos as the upstream forecasting model rather than rewriting its prediction logic.
+- Use TradingAgents as the upstream agent workflow foundation rather than building a clean-room multi-agent framework.
+- Add adapters only where product requirements need them: US/Canada data snapshots, symbol normalization, Kronos output conversion, watchlist runs, paper-validation, email alerts, and UI.
 
 ## Key Design Constraints
 
@@ -64,4 +72,3 @@ Primary design document:
 ## Disclaimer
 
 This project is for research and decision support. It is not financial advice and does not execute trades.
-
