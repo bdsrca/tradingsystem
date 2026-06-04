@@ -240,11 +240,23 @@ To avoid blocking implementation on open architecture questions, V1 uses these d
 - Supplemental data provider: Finnhub for company, fundamentals, and news context where available.
 - Canadian ticker display format: Yahoo-style symbols such as `SHOP.TO`; provider adapters translate to provider-specific formats such as `SHOP:TSX` when needed.
 - Kronos runtime: worker module in the Python analysis process, not a separate model service for V1.
-- Scheduler: APScheduler embedded in the local API/worker process.
+- Scheduler: APScheduler runs in the V1 combined API/worker process with every CronTrigger using an explicit `SCHEDULER_TIMEZONE`, defaulting to `America/Toronto`.
+- Daily analysis trigger: 17:00 ET by default, not immediately at the 16:00 ET market close, to allow provider daily bars to settle.
 - Paper position sizing: equal weight, 5% of total simulated capital per new position.
 - Cloud access protection: HTTP Basic Auth through environment variables for single-user deployment, unless a stronger deployment-specific access layer is used.
 
 These defaults are intentionally simple. They can be replaced later without changing the product surface if the interfaces below remain stable.
+
+### V1 Process Topology
+
+V1 runs as a single combined `apps/api + workers/daily` process:
+
+- FastAPI serves the local web/API surface.
+- APScheduler runs inside the FastAPI lifespan.
+- Manual trigger endpoints call the same analysis functions used by scheduled jobs.
+- Docker Compose may still keep code directories named `apps/api` and `workers/daily`, but V1 starts one combined application service to avoid duplicate schedulers.
+
+V2/cloud can split API and worker services once a Postgres-backed job table or external queue exists. At that point, only one service may own scheduled job creation.
 
 ### Agent Data Anchoring
 
@@ -292,6 +304,9 @@ Daily analysis must complete within a practical post-close window. V1 should ass
 Rules:
 
 - The worker processes watchlist items through a bounded worker pool.
+- Each ticker analysis acquires an advisory lock or database-level lock on `watchlist_items.id`.
+- Manual trigger attempts for a ticker already being analyzed return HTTP 409 with the current run status.
+- Scheduled jobs skip tickers currently locked by another run.
 - Kronos calls have a per-ticker timeout.
 - LLM calls have a per-agent timeout.
 - Provider calls have retries with backoff and rate-limit awareness.
@@ -372,6 +387,9 @@ Freshness rules:
 - `watchlist_items.data_stale_after_hours` controls the default refetch threshold.
 - US and Canadian tickers use their own exchange calendars before deciding whether a bar is missing or simply not expected due to a holiday.
 - Stale data is visible in the watchlist status column and prevents strong-signal alerts.
+- The daily worker verifies that sample tickers' latest bars match the expected close date before starting full watchlist analysis.
+- If today's expected bar is delayed, the worker logs a warning and retries up to 3 times at 30-minute intervals.
+- If the bar is still unavailable after retries, the run is marked `stale-data-delayed` and strong-signal alerts are suppressed.
 
 ### Trading Calendars
 
@@ -383,6 +401,9 @@ Requirements:
 - Compute 5, 10, 20, and 30 trading day forward windows using the correct exchange calendar.
 - Treat market holidays and early closes explicitly.
 - Prefer a maintained calendar library such as `pandas_market_calendars` where it fits the Python stack.
+- Verify the XTSE calendar against TMX Group's official holiday schedule before each deployment year.
+- TSX trades on Remembrance Day, November 11; if a calendar library marks it closed, patch the calendar override in `packages/quant`.
+- Test TSX early-close dates explicitly.
 
 ## 7. Signal Workflow
 
@@ -467,7 +488,10 @@ If the agent workflow uses LangGraph or a compatible graph runner, each per-tick
 
 Requirements:
 
-- `analysis_runs.checkpoint_state` stores resumable graph state or a pointer to the checkpoint store.
+- V1 uses a checkpoint pointer strategy when LangGraph persistence is enabled.
+- LangGraph checkpoint state is stored in LangGraph-managed checkpoint tables.
+- `analysis_runs.checkpoint_state` stores the checkpoint `thread_id`, checkpoint namespace, latest checkpoint ID, and status metadata, not the checkpoint blobs themselves.
+- Database initialization runs Alembic migrations first, then calls the LangGraph checkpointer setup routine idempotently.
 - A failed per-ticker job should resume from the latest safe checkpoint when retried.
 - Completed analyst reports should not be regenerated unnecessarily after a downstream debate or portfolio-manager failure.
 - Checkpoint metadata must include prompt versions and data snapshot IDs so resumed runs do not mix old prompts with new data.
@@ -555,6 +579,36 @@ Core tables:
 - `email_notifications`
 - `settings`
 
+### market_data_bars
+
+Market bars are append-or-upsert records keyed by provider and bar date.
+
+Required fields:
+
+- `id`
+- `ticker`
+- `provider_symbol`
+- `market`
+- `exchange`
+- `source_provider`
+- `bar_date`
+- `open`
+- `high`
+- `low`
+- `close`
+- `adjusted_close`
+- `volume`
+- `amount`
+- `adjustment_mode`
+- `data_source_version`
+- `fetched_at`
+
+Constraints:
+
+- Unique key: `(source_provider, provider_symbol, exchange, bar_date, adjustment_mode)`.
+- Store the adjustment mode used for every analysis snapshot.
+- Do not mix raw and adjusted prices inside one analysis snapshot.
+
 ### signals
 
 Historical signals are append-only and immutable once used for paper validation.
@@ -566,6 +620,14 @@ Rules:
 - Paper validation references specific signal IDs and a specific simulation assumption snapshot.
 - Historical backtests must not regenerate prior LLM outputs dynamically.
 - Signal rows store prompt version, model provider, data snapshot ID, and generated-at timestamp.
+
+Realized outcome fields are backfilled by a separate outcome job:
+
+- `realized_5d_return_pct`
+- `realized_10d_return_pct`
+- `realized_20d_return_pct`
+- `realized_30d_return_pct`
+- `realized_outcome_filled_at`
 
 ### watchlist_items
 
@@ -626,6 +688,22 @@ Fields should include enough information to reproduce validation results:
 - `exit_reason`
 - `return_pct`
 - `holding_days`
+
+### paper_portfolio_snapshots
+
+Portfolio snapshots drive the paper validation equity curve.
+
+Fields:
+
+- `simulation_run_id`
+- `snapshot_date`
+- `portfolio_value`
+- `cash`
+- `open_positions_count`
+- `open_positions_value`
+- `realized_pnl_to_date`
+- `benchmark_symbol`
+- `benchmark_value`
 
 ## 9. Email Alerts
 
@@ -763,10 +841,10 @@ Success criteria:
 5. OHLCV storage and refresh.
 6. Candlestick chart with buy/sell markers.
 7. Technical indicators and deterministic baseline signal.
-8. Paper validation engine.
-9. Kronos integration.
-10. LLM provider adapter with remote API and Ollama option.
-11. TradingAgents-style analyst workflow.
+8. Kronos integration.
+9. Minimal LLM provider adapter with remote API and Ollama connectivity checks.
+10. Paper validation engine using frozen baseline/Kronos signals.
+11. TradingAgents-style analyst workflow to improve and explain signal quality.
 12. Daily worker.
 13. Email digest and alerting.
 14. Cloud deployment preparation.
