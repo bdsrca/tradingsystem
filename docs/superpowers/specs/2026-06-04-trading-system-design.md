@@ -184,6 +184,7 @@ Metrics:
 V1 simulation rules:
 
 - Initial capital defaults to 100,000.
+- Paper validation uses frozen, stored historical signals. It must not regenerate old LLM decisions during validation.
 - Position sizing uses equal weight by default: 5% of total simulated capital per new position.
 - Each `BUY` opens a position only when the ticker has no currently open simulated position.
 - Repeated `BUY` signals for an already-open ticker are recorded as confirmations, not additional buys.
@@ -196,6 +197,7 @@ V1 simulation rules:
 - Stop/invalidation exits are simulated when historical price crosses the risk level.
 - Slippage and fees are configurable but simple.
 - Simulation assumptions are stored with each run so results are reproducible.
+- Each simulation run references a fixed signal snapshot and immutable simulation assumptions.
 
 This page is for validation only. It must not imply live trading execution.
 
@@ -243,6 +245,20 @@ To avoid blocking implementation on open architecture questions, V1 uses these d
 - Cloud access protection: HTTP Basic Auth through environment variables for single-user deployment, unless a stronger deployment-specific access layer is used.
 
 These defaults are intentionally simple. They can be replaced later without changing the product surface if the interfaces below remain stable.
+
+### Agent Data Anchoring
+
+TradingAgents-style workflows must use the platform's verified data snapshot as the source of truth.
+
+Rules:
+
+- Agents receive structured market, company, indicator, Kronos, and news inputs from the analysis snapshot.
+- Agents must not independently fetch Yahoo Finance, Alpha Vantage, or other external market data during a run.
+- If an upstream TradingAgents component is reused, its data tools must be wrapped or disabled so all numerical inputs come from the platform snapshot.
+- Snapshot metadata records the provider, symbol mapping, fetch time, adjustment mode, and calendar used.
+- If a supplemental provider is used for fundamentals or news, that data is stored in the snapshot before agent execution and labeled with its source.
+
+This prevents the LLM layer from mixing Twelve Data OHLCV with Yahoo-derived prices or differently adjusted histories in the same decision.
 
 ### Local Runtime
 
@@ -329,10 +345,12 @@ Health check requirements:
 
 - Validate API key presence and basic connectivity.
 - Fetch one known US ticker sample.
-- Fetch one known Canadian ticker sample.
+- Fetch one known TSX main-board Canadian ticker sample.
+- Fetch one known TSX Venture sample if TSXV support is enabled or expected.
 - Confirm historical daily bar availability.
 - Report rate-limit or entitlement failures distinctly from network failures.
 - Store the latest provider health status for display in settings and worker error digests.
+- Record plan limitations, including exchange entitlements and historical depth limits discovered during health checks.
 
 The analysis worker should skip or degrade jobs when the required provider is unhealthy rather than producing unsupported conclusions.
 
@@ -389,17 +407,30 @@ For each enabled watchlist item:
 
 Kronos output must be converted into a structured result before it enters the agent workflow.
 
+Kronos integration constraints:
+
+- Kronos `predict_batch` requires all series in the same batch to have the same historical lookback length and the same `pred_len`.
+- The worker groups Kronos jobs by `(lookback_length_bucket, pred_len)` before calling `predict_batch`.
+- Tickers with short or unusual histories are processed through single-series `predict` or marked as Kronos-skipped.
+- V1 requires at least 100 valid trading-day bars before running Kronos for a ticker.
+- The preferred lookback target is configurable, with 400 trading-day bars as the initial target when available.
+- Separate horizons, such as 5, 10, 20, and 30 trading days, are separate `pred_len` groups.
+- Batch grouping logic must be tested directly because shape mismatches should fail before model inference starts.
+
 `KronosForecastResult`:
 
 - `ticker`
 - `analysis_date`
 - `horizon_days`
+- `lookback_bars`
+- `sample_count`
 - `direction`: `bullish`, `bearish`, or `neutral`
 - `magnitude_pct`: forecast return estimate for the horizon
 - `confidence`: normalized value from 0 to 1 when available
 - `forecast_close`
 - `forecast_low`
 - `forecast_high`
+- `forecast_path`
 - `volatility_note`
 - `model_name`
 - `model_version`
@@ -410,6 +441,48 @@ Kronos output must be converted into a structured result before it enters the ag
 The technical analyst receives `KronosForecastResult` together with computed indicators. The final decision must preserve whether Kronos agreed or disagreed with the non-LLM technical signal.
 
 When Kronos and the final signal materially disagree, the UI should highlight the disagreement rather than hiding it.
+
+### Kronos Output Adapter
+
+Kronos returns a DataFrame of predicted `open`, `high`, `low`, `close`, `volume`, and `amount` values. It does not directly return signal direction, magnitude, or confidence. The platform therefore needs an adapter that converts the forecast sequence into the structured contract above.
+
+Adapter rules:
+
+- `direction` is inferred by comparing the final forecast `close` with the current close.
+- `magnitude_pct` is `(forecast_final_close - current_close) / current_close`.
+- `neutral` is used when absolute `magnitude_pct` is below a configured threshold.
+- `forecast_path` stores the predicted close path used by the chart overlay.
+- `forecast_close` stores the final horizon forecast close.
+- `forecast_low` and `forecast_high` are derived from forecast-path lows/highs for a single sample.
+- For interval estimates, the adapter should run repeated forecasts with `sample_count` or repeated calls and compute quantiles when raw individual samples are available.
+- Because Kronos may average samples internally, V1 must verify whether individual sample paths are accessible before claiming Monte Carlo confidence intervals.
+- If individual paths are not available, `confidence` must be derived conservatively from deterministic agreement signals, not presented as a statistical interval.
+- For US and Canadian stocks, `amount` may be unavailable from providers. V1 zero-fills `amount` and records `amount_unavailable_zero_filled` in `volatility_note`.
+
+The UI must label Kronos forecasts for US and Canadian tickers as cross-market transfer forecasts until the model is validated or fine-tuned on those exchanges.
+
+### Agent Checkpoint Resume
+
+If the agent workflow uses LangGraph or a compatible graph runner, each per-ticker analysis job should support checkpoint resume.
+
+Requirements:
+
+- `analysis_runs.checkpoint_state` stores resumable graph state or a pointer to the checkpoint store.
+- A failed per-ticker job should resume from the latest safe checkpoint when retried.
+- Completed analyst reports should not be regenerated unnecessarily after a downstream debate or portfolio-manager failure.
+- Checkpoint metadata must include prompt versions and data snapshot IDs so resumed runs do not mix old prompts with new data.
+
+### Decision Memory
+
+The agent layer should support an append-only decision memory compatible with the spirit of TradingAgents' persistent decision log.
+
+Requirements:
+
+- Store prior decisions, realized returns, and alpha versus the relevant benchmark.
+- Inject recent same-ticker lessons into the final portfolio-manager prompt.
+- Keep the database as the canonical store and optionally export/import a `trading_memory.md`-style markdown view.
+- Decision memory must reference immutable signal IDs and realized outcome records.
+- Memory content is context for reflection, not a direct override of current structured data and risk rules.
 
 ### Signal Schema
 
@@ -482,6 +555,18 @@ Core tables:
 - `email_notifications`
 - `settings`
 
+### signals
+
+Historical signals are append-only and immutable once used for paper validation.
+
+Rules:
+
+- Do not update prior signal decisions in place.
+- Corrections create a new signal revision linked to the original.
+- Paper validation references specific signal IDs and a specific simulation assumption snapshot.
+- Historical backtests must not regenerate prior LLM outputs dynamically.
+- Signal rows store prompt version, model provider, data snapshot ID, and generated-at timestamp.
+
 ### watchlist_items
 
 Fields:
@@ -518,6 +603,8 @@ Additional observability fields:
 - `paper_validation_duration_ms`
 - `prompt_version`
 - `provider_health_snapshot`
+- `checkpoint_state`
+- `data_snapshot_id`
 
 ### paper_trades
 
@@ -639,6 +726,11 @@ Minimum verification for V1:
 - Unit tests for indicator calculations.
 - Unit tests for signal scoring.
 - Unit tests for paper-trading simulation rules.
+- Unit test: `test_kronos_batch_grouping_by_lookback_length()`.
+- Unit test: `test_email_debounce_suppresses_repeat_signal_within_window()`.
+- Unit test: `test_llm_hallucination_validator_flags_unsupported_numbers()`.
+- Unit test: `test_paper_validation_uses_frozen_signal_snapshot()`.
+- Unit test: `test_agent_inputs_are_anchored_to_single_data_snapshot()`.
 - Integration test for one complete analysis run with mocked provider data.
 - API tests for watchlist CRUD.
 - UI smoke test for watchlist and stock detail chart rendering.
@@ -694,7 +786,14 @@ Future enhancements to preserve in the design:
 
 - Signal consistency checks when Kronos and the final agent decision disagree.
 - Forecast accuracy tracking that compares predicted prices with actual 5, 10, 20, and 30 trading day outcomes.
+- Compatibility with TradingAgents-style `trading_memory.md`, including per-ticker historical decisions, realized return, and alpha-vs-benchmark lessons injected into the portfolio-manager prompt.
 - Prompt A/B testing using recorded prompt versions.
 - More detailed tag-based watchlist runs.
 - Volatility-adjusted paper-trading position sizing.
 - Full broker paper account integration after the signal engine proves useful.
+- Fine-tuning or calibrating Kronos on Nasdaq, NYSE, and TSX daily data before giving it a high decision weight.
+
+V1 Kronos caveat:
+
+- Kronos weight in final scoring is conservative by default for US and Canadian tickers.
+- The UI labels Kronos output as "cross-market transfer forecast; exchange-specific accuracy not yet validated" until local validation or fine-tuning proves otherwise.
