@@ -124,6 +124,7 @@ Tasks:
 - [ ] Implement baseline signal engine.
 - [ ] Write failing tests for immutable signal behavior.
 - [ ] Implement append-only signal storage.
+- [ ] Add a Phase 2 Alembic migration for fields and tables introduced after Phase 1: deterministic signal metadata, `paper_trades`, `paper_portfolio_snapshots`, realized outcome fields, and nullable `signals.disagreement_level`. Do not assume Phase 1 created these future fields.
 - [ ] Write failing tests for paper-trading rules.
 - [ ] Implement paper-trading simulator.
 - [ ] Keep Phase 2 paper validation based on deterministic baseline signals only. Kronos forecast overlays on paper charts are deferred until after Kronos integration.
@@ -201,10 +202,10 @@ Tasks:
 - [ ] Implement LLM provider adapter.
 - [ ] Write failing tests for agent data anchoring.
 - [ ] Implement snapshot-to-agent input adapter.
-- [ ] Integrate or wrap TradingAgents analyst workflow.
 - [ ] Inventory TradingAgents internal external-data tools, especially yfinance-backed calls, before enabling the workflow.
 - [ ] Write failing tests for disabling conflicting external data pulls.
 - [ ] Implement data-tool wrappers.
+- [ ] Integrate or wrap TradingAgents analyst workflow only after the external-data inventory and wrappers are in place, so test runs cannot leak live yfinance/provider calls.
 - [ ] Write failing tests for hallucination validator.
 - [ ] Implement validator and one retry path.
 - [ ] Add checkpoint pointer support.
@@ -240,10 +241,11 @@ Tasks:
 - [ ] Write failing tests for scheduler timezone config.
 - [ ] Implement scheduler config.
 - [ ] Write failing tests for analysis lock conflict.
-- [ ] Implement per-ticker lock handling with a job lease or short database critical section. Avoid wrapping the full Kronos/LLM analysis in one long `pg_advisory_xact_lock` transaction.
+- [ ] Implement the V1 default lock strategy with an in-process `asyncio.Lock` keyed by `ticker::market`, plus persisted `analysis_runs` status checks for recovery visibility. Avoid wrapping the full Kronos/LLM analysis in one long `pg_advisory_xact_lock` transaction.
 - [ ] Document lock key derivation if Postgres advisory locks are used, such as `hashtext(ticker || '::' || market)`, and document why the lock does or does not span the full run.
 - [ ] Write failing tests for provider freshness retry.
 - [ ] Implement freshness retry.
+- [ ] Add a Phase 5 Alembic migration for scheduler/worker/email fields introduced after Phase 1 and Phase 2, including email debounce metadata, worker run summaries, freshness/degraded status fields, and any persisted job lease/status fields. Do not assume Phase 1 created these operational fields.
 - [ ] Write failing tests for email debounce.
 - [ ] Implement email aggregation and debounce.
 - [ ] Add structured worker logs and daily summary.
@@ -273,7 +275,7 @@ Verification:
 Tasks:
 
 - [ ] Add Basic Auth middleware for deployed mode.
-- [ ] Add `infra/scripts/init_db.sh` or equivalent initialization command that runs Alembic migrations, calls LangGraph checkpointer setup when enabled, and is idempotent.
+- [ ] Add `infra/scripts/init_db.py` or equivalent Python initialization command that runs Alembic migrations, awaits LangGraph checkpointer setup when enabled, and is idempotent.
 - [ ] Document the database initialization command as a required first-run step in README.
 - [ ] Add deployment env documentation.
 - [ ] Add backup/restore documentation.
