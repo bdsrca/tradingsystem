@@ -26,7 +26,7 @@ from trading_system_agents.tradingagents_runtime import (
     TradingAgentsRuntimeDirs,
     prepare_isolated_runtime_dirs,
 )
-from trading_system_agents.vendor_bridge import run_with_snapshot
+from trading_system_agents.vendor_bridge import platform_vendor_config, run_with_snapshot
 
 
 @dataclass(frozen=True)
@@ -63,6 +63,7 @@ async def run_tradingagents_e2e(
     ]
     | None = None,
     duration_ms_by_stage: Mapping[str, int] | None = None,
+    tradingagents_config_module: object | None = None,
 ) -> TradingAgentsE2EResult:
     runtime_dirs = prepare_isolated_runtime_dirs(runtime_base_dir, run_id=run_id)
     checkpoint_setup = _configure_checkpoint(
@@ -78,6 +79,7 @@ async def run_tradingagents_e2e(
     def run_graph_in_worker() -> Mapping[str, Any]:
         def invoke() -> Mapping[str, Any]:
             with tradingagents_llm_environment(llm_config):
+                _set_tradingagents_global_config(tradingagents_config_module, config)
                 return graph_step(config)
 
         return run_with_snapshot(snapshot, invoke)
@@ -134,6 +136,7 @@ def _configure_checkpoint(
 ) -> CheckpointSetupResult:
     base_config = llm_config.to_tradingagents_config(run_config)
     base_config["selected_analysts"] = run_config.selected_analysts
+    base_config.update(platform_vendor_config())
     return configure_checkpoint_or_degrade(
         runtime_dirs,
         checkpoint_data_dir=checkpoint_data_dir,
@@ -192,3 +195,10 @@ def _adapt_reports(
 
 def _as_mapping_or_none(value: object | None) -> Mapping[str, Any] | None:
     return value if isinstance(value, Mapping) else None
+
+
+def _set_tradingagents_global_config(config_module: object | None, config: dict[str, object]) -> None:
+    if config_module is None:
+        return
+    set_config = getattr(config_module, "set_config")
+    set_config(config)

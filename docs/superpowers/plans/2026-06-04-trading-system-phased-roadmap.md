@@ -212,6 +212,9 @@ Tasks:
 - [x] Verify that `resolve_instrument_identity()` at the pinned TradingAgents commit calls `yf.Ticker().info` network-first and is `lru_cache`-backed. Add a Phase 4B runtime helper that clears the cache, replaces the function itself with snapshot-backed metadata, and patches the imported `trading_graph` reference. Record the patch location and method in `CONTRIBUTING.md`.
 - [x] Write failing tests for registering a platform vendor through TradingAgents' vendor-routing layer.
 - [x] Implement the platform vendor bridge for snapshot-backed market data, indicators, fundamentals, and news where the upstream method shape allows it.
+- [x] Verify the pinned `route_to_vendor()` fallback chain and record the source fact in `CONTRIBUTING.md`: after configured primary vendors, upstream appends every registered vendor for the method. Platform vendor methods must return a `NO_DATA_AVAILABLE:` sentinel for missing snapshot data, unsupported methods, or adapter errors instead of raising ordinary exceptions that allow fallback to yfinance or Alpha Vantage.
+- [x] Verify that pinned `get_vendor()` reads process-global `get_config()`, not only the local runner config dict. Add platform vendor config and an E2E seam test that calls upstream-style `set_config()` inside the sync worker before graph execution.
+- [x] Verify that pinned `VENDOR_LIST = ["yfinance", "alpha_vantage"]` is not used as a `route_to_vendor()` filter. Do not modify that list for V1 platform routing.
 - [x] Write failing no-network tests that monkeypatch `yfinance.download` and `yfinance.Ticker` to raise immediately during agent workflow execution.
 - [x] Add HTTP-layer no-network tests with `pytest-httpx`, `respx`, or a native HTTPX transport guard, blocking external market-data hostnames such as `finance.yahoo.com`, `query1.finance.yahoo.com`, `twelvedata.com`, and `finnhub.io`. Split tests into unit tests with full network blocked and explicit integration tests where configured LLM endpoints may be allowed while market-data hosts remain blocked.
 - [x] Add Phase 4B escape-path guard helpers for TradingAgents runs: fresh per-run `data_cache_dir`/`results_dir` creation that fails closed when reused, plus a pending-entry resolution no-op guard so stale memory logs cannot trigger `_fetch_returns()` and yfinance before the platform owns realized-return backfill.
@@ -241,6 +244,7 @@ Tasks:
 - [ ] Integrate output adapter rows into the Phase 4 API/DB storage path after the Phase 4 Alembic migration exists.
 - [x] Add a mock E2E TradingAgents runner seam that wires Phase 4B runtime dirs, persistent checkpoint cache, per-run memory log, LLM environment, executor-thread snapshot context, split timeouts, signal extraction, and output adapter reports together.
 - [x] Add E2E seam tests for the three runner junction risks: persistent checkpoint path must differ from per-run memory/results paths, `ContextVar` snapshot setup happens inside the executor thread, and mock `final_trade_decision` contains a parseable rating for deterministic signal extraction.
+- [ ] In the live `TradingAgentsGraph` integration, call actual `tradingagents.dataflows.config.set_config(config)` inside the worker before graph construction/execution and keep no-network workflow tests enabled.
 - [ ] Replace the mock graph step with the pinned `TradingAgentsGraph` construction after dependency checks and no-network workflow tests are in place.
 - [ ] Add decision memory persistence.
 - [ ] Commit.

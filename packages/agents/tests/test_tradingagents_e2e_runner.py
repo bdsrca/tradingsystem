@@ -68,6 +68,9 @@ async def test_e2e_runner_uses_persistent_checkpoint_cache_and_per_run_memory_lo
         checkpoint_root / "checkpoints"
     ).resolve()
     assert result.runtime_dirs.run_dir == (run_root / "run-1").resolve()
+    assert result.config["data_vendors"]["core_stock_apis"] == "platform"
+    assert result.config["tool_vendors"]["get_stock_data"] == "platform"
+    assert result.config["tool_vendors"]["get_news"] == "platform"
 
 
 @pytest.mark.asyncio
@@ -99,6 +102,37 @@ async def test_e2e_runner_sets_snapshot_inside_executor_thread(tmp_path) -> None
     assert result.signal == "HOLD"
     with pytest.raises(MissingSnapshotError):
         get_snapshot()
+
+
+@pytest.mark.asyncio
+async def test_e2e_runner_applies_config_to_tradingagents_global_config_inside_worker(
+    tmp_path,
+) -> None:
+    class ConfigModule:
+        seen_config: dict[str, object] | None = None
+
+        @classmethod
+        def set_config(cls, config: dict[str, object]) -> None:
+            cls.seen_config = dict(config)
+
+    def graph_step(_config: dict[str, object]) -> dict[str, object]:
+        assert ConfigModule.seen_config is not None
+        assert ConfigModule.seen_config["tool_vendors"]["get_stock_data"] == "platform"
+        return {"final_trade_decision": "**Rating**: Hold\n\nGlobal config was set."}
+
+    result = await run_tradingagents_e2e(
+        snapshot=_snapshot("SHOP"),
+        analysis_run_id="analysis-1",
+        run_id="run-1",
+        runtime_base_dir=tmp_path / "runs",
+        checkpoint_data_dir=tmp_path / "checkpoint-cache",
+        llm_config=_llm(),
+        run_config=AgentRunConfig(llm_provider="ollama"),
+        graph_step=graph_step,
+        tradingagents_config_module=ConfigModule,
+    )
+
+    assert result.signal == "HOLD"
 
 
 @pytest.mark.asyncio

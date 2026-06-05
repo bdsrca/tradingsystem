@@ -50,6 +50,20 @@ At the pinned commit, TradingAgents exposes `VENDOR_METHODS` and
 `route_to_vendor()` in `tradingagents/dataflows/interface.py`. Phase 4 should
 prefer registering a platform vendor there so analyst tools read this
 platform's frozen data snapshot instead of monkey-patching broad internals.
+`route_to_vendor()` builds a fallback chain from the configured primary vendor
+plus every vendor registered for the method in `VENDOR_METHODS`. Therefore
+platform vendor methods must not raise ordinary exceptions for missing snapshot
+data, unsupported methods, or adapter errors. Return a `NO_DATA_AVAILABLE:`
+sentinel string or raise upstream `NoMarketDataError`; otherwise upstream can
+continue to yfinance or Alpha Vantage after the platform adapter fails.
+
+At the pinned commit, `get_vendor()` reads the process-global
+`tradingagents/dataflows/config.py::get_config()` value rather than a per-run
+config dict. The actual TradingAgents runner must call upstream `set_config()`
+with this platform's merged config inside the synchronous worker before graph
+construction or execution. `VENDOR_LIST` is hardcoded to `["yfinance",
+"alpha_vantage"]`, but `route_to_vendor()` does not use it as a filter, so do
+not edit that list merely to register `platform`.
 
 Known direct yfinance escape paths at the pinned commit:
 
