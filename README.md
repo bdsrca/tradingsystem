@@ -93,21 +93,21 @@ The deterministic baseline uses a pure pandas indicator implementation with pand
 6. Install Node dependencies: `npm install`.
 7. Run API tests: `npm run test:api`.
 8. Run web type checks: `npm run typecheck:web`.
-9. Apply database migrations from the repository root:
+9. Initialize the database from the repository root:
 
 ```powershell
 $env:DATABASE_URL='sqlite+aiosqlite:///./trading_system.db'
-.\.venv\Scripts\python.exe -m alembic -c apps/api/alembic.ini upgrade head
+.\.venv\Scripts\python.exe -m infra.scripts.init_db
 ```
 
-8. Start the API from the repository root:
+10. Start the API from the repository root:
 
 ```powershell
 $env:PYTHONPATH='apps/api;packages/data;packages/quant;packages/agents;packages/email;workers/daily'
 .\.venv\Scripts\python.exe -m uvicorn trading_system_api.main:app --host 127.0.0.1 --port 8000
 ```
 
-9. Start the web app from `apps/web`: `npx next dev --hostname 127.0.0.1 --port 3001`.
+11. Start the web app from `apps/web`: `npx next dev --hostname 127.0.0.1 --port 3001`.
 
 The API health endpoint is `http://127.0.0.1:8000/health`. The web app is available at `http://127.0.0.1:3001`, with the watchlist at `/watchlist`, stock detail pages at `/stock/AAPL` or `/stock/SHOP?exchange=TSX`, and paper validation at `/paper/AAPL`.
 
@@ -118,6 +118,9 @@ To use Kronos forecasts, run a Kronos service separately and set
 [`services/kronos_service/README.md`](services/kronos_service/README.md).
 Without that service, `POST /kronos/{symbol}/forecast` stores a degraded
 fallback result instead of blocking the baseline workflow.
+
+Cloud deployment, Basic Auth, smoke-test, and backup/restore notes are in
+[`docs/deployment.md`](docs/deployment.md).
 
 Primary design document:
 

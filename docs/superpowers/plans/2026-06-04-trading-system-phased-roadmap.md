@@ -288,7 +288,7 @@ Tasks:
 - [x] Write failing tests for email debounce.
 - [x] Implement email aggregation and debounce.
 - [x] Add structured worker logs and daily summary.
-- [ ] Commit.
+- [x] Commit.
 
 ## Phase 6: Local Hardening And Cloud-Ready Packaging
 
@@ -313,13 +313,13 @@ Verification:
 
 Tasks:
 
-- [ ] Add Basic Auth middleware for deployed mode.
-- [ ] Add `infra/scripts/init_db.py` or equivalent Python initialization command that runs Alembic migrations, awaits LangGraph checkpointer setup when enabled, and is idempotent.
-- [ ] Document the database initialization command as a required first-run step in README.
-- [ ] Add deployment env documentation.
-- [ ] Add backup/restore documentation.
-- [ ] Add smoke test script.
-- [ ] Update README with first-run instructions.
+- [x] Add Basic Auth middleware for deployed mode.
+- [x] Add `infra/scripts/init_db.py` or equivalent Python initialization command that runs Alembic migrations, awaits LangGraph checkpointer setup when enabled, and is idempotent.
+- [x] Document the database initialization command as a required first-run step in README.
+- [x] Add deployment env documentation.
+- [x] Add backup/restore documentation.
+- [x] Add smoke test script.
+- [x] Update README with first-run instructions.
 - [ ] Commit.
 
 ## Phase 7: Calibration And Quality Tracking

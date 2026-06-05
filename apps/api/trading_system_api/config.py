@@ -5,6 +5,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./trading_system.db"
+    cloud_mode: bool = False
+    basic_auth_enabled: bool = False
+    basic_auth_username: str | None = None
+    basic_auth_password: str | None = None
     twelve_data_api_key: str | None = None
     kronos_service_url: str = "http://127.0.0.1:8001"
     kronos_model_name: str = "NeoQuasar/Kronos-small"
@@ -29,6 +33,10 @@ class Settings(BaseSettings):
     smtp_use_tls: bool = True
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    @property
+    def basic_auth_required(self) -> bool:
+        return self.cloud_mode or self.basic_auth_enabled
 
 
 @lru_cache

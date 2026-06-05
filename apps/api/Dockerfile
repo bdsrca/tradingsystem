@@ -5,6 +5,7 @@ WORKDIR /app
 COPY pyproject.toml README.md ./
 COPY requirements.txt requirements-dev.txt ./
 COPY apps/api ./apps/api
+COPY infra ./infra
 COPY packages ./packages
 COPY workers ./workers
 

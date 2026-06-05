@@ -4,6 +4,7 @@ from collections.abc import AsyncIterator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from trading_system_api.auth import add_basic_auth_if_enabled
 from trading_system_api.config import get_settings
 from trading_system_api.daily_service import run_daily_analysis
 from trading_system_api.database import SessionLocal
@@ -27,6 +28,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
+    settings = get_settings()
     app = FastAPI(title="Trading System API", version="0.1.0", lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
@@ -40,6 +42,7 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    add_basic_auth_if_enabled(app, settings)
 
     @app.get("/health", tags=["system"])
     async def health() -> dict[str, str]:
