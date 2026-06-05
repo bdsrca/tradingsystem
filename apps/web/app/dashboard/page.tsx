@@ -54,10 +54,10 @@ export default function DashboardPage() {
 
       {summary ? (
         <>
-          <section className="paper-grid" aria-label="Dashboard summary">
-            <article className="paper-panel">
+          <section className="dashboard-strip" aria-label="Dashboard summary">
+            <article className="summary-card">
               <h2>Daily Run</h2>
-              <dl className="metric-grid">
+              <dl className="compact-metrics">
                 <div>
                   <dt>Status</dt>
                   <dd>{summary.latest_run?.status ?? "none"}</dd>
@@ -77,9 +77,9 @@ export default function DashboardPage() {
               </dl>
             </article>
 
-            <article className="paper-panel">
+            <article className="summary-card">
               <h2>Attention</h2>
-              <dl className="metric-grid">
+              <dl className="compact-metrics">
                 <div>
                   <dt>Items</dt>
                   <dd>{summary.attention_items.length}</dd>
@@ -91,9 +91,9 @@ export default function DashboardPage() {
               </dl>
             </article>
 
-            <article className="paper-panel">
+            <article className="summary-card">
               <h2>20D Accuracy</h2>
-              <dl className="metric-grid">
+              <dl className="compact-metrics">
                 <div>
                   <dt>Evaluated</dt>
                   <dd>{summary.accuracy_snapshot.evaluated_count}</dd>

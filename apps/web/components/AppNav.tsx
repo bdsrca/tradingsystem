@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 type AppNavProps = {
   className?: string;
@@ -13,8 +16,21 @@ const links = [
 ] as const;
 
 export default function AppNav({ className }: AppNavProps) {
+  const router = useRouter();
+
+  function goBack() {
+    if (window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push("/watchlist");
+  }
+
   return (
     <nav className={className ?? "link-row"} aria-label="Primary navigation">
+      <button className="back-button" onClick={goBack} type="button">
+        ← Back
+      </button>
       {links.map((link) => (
         <Link
           className={link.tone === "muted" ? "text-link nav-muted" : "text-link"}

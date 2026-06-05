@@ -114,6 +114,18 @@ a {
   gap: 12px;
 }
 
+.back-button {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 7px 10px;
+}
+
 .action-row {
   margin-top: 20px;
 }
@@ -128,6 +140,12 @@ a {
   font-size: 14px;
   font-weight: 700;
   padding: 10px 14px;
+}
+
+.action-row .secondary-button {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
 }
 
 .action-row span {
@@ -367,6 +385,49 @@ td a {
   margin: 0 0 14px;
 }
 
+.dashboard-strip {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 20px;
+}
+
+.summary-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.summary-card h2 {
+  font-size: 15px;
+  margin: 0 0 10px;
+}
+
+.compact-metrics {
+  display: grid;
+  gap: 8px 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+}
+
+.compact-metrics div {
+  min-width: 0;
+}
+
+.compact-metrics dt {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.compact-metrics dd {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+}
+
 .admin-section {
   margin-top: 24px;
 }
@@ -374,6 +435,45 @@ td a {
 .admin-section h2 {
   font-size: 16px;
   margin: 0 0 14px;
+}
+
+.admin-login {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-top: 24px;
+  max-width: 420px;
+  padding: 18px;
+}
+
+.admin-login h2 {
+  font-size: 16px;
+  margin: 0 0 14px;
+}
+
+.inline-form {
+  display: flex;
+  gap: 10px;
+}
+
+.inline-form input {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  flex: 1;
+  font: inherit;
+  min-width: 0;
+  padding: 10px 12px;
+}
+
+.inline-form button {
+  background: var(--accent);
+  border: 0;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 10px 14px;
 }
 
 .settings-grid {
@@ -499,6 +599,14 @@ td a {
 
   .paper-grid {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .compact-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .settings-grid {

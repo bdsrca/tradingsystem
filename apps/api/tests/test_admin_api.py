@@ -9,6 +9,34 @@ from trading_system_api.main import create_app
 from trading_system_api.models import AppSetting, ServiceHealthCheck
 
 
+ADMIN_HEADERS = {"X-Admin-Passcode": "8888"}
+
+
+@pytest.mark.anyio
+async def test_admin_endpoints_require_hardcoded_passcode() -> None:
+    get_settings.cache_clear()
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    Session = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    app = create_app()
+
+    async def override_session():
+        async with Session() as session:
+            yield session
+
+    app.dependency_overrides[get_session] = override_session
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        missing = await client.get("/admin/settings")
+        wrong = await client.get("/admin/settings", headers={"X-Admin-Passcode": "1234"})
+        allowed = await client.get("/admin/settings", headers=ADMIN_HEADERS)
+
+    assert missing.status_code == 401
+    assert wrong.status_code == 401
+    assert allowed.status_code == 200
+
+
 @pytest.mark.anyio
 async def test_admin_settings_patch_saves_non_secret_and_masks_secrets(monkeypatch) -> None:
     monkeypatch.setenv("TWELVE_DATA_API_KEY", "secret-key")
@@ -28,10 +56,12 @@ async def test_admin_settings_patch_saves_non_secret_and_masks_secrets(monkeypat
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         rejected = await client.patch(
             "/admin/settings",
+            headers=ADMIN_HEADERS,
             json={"twelve_data_api_key": "must-not-save"},
         )
         response = await client.patch(
             "/admin/settings",
+            headers=ADMIN_HEADERS,
             json={
                 "llm_provider_type": "ollama",
                 "llm_base_url": "http://127.0.0.1:11434",
@@ -69,8 +99,8 @@ async def test_admin_health_upserts_one_row_per_service() -> None:
 
     app.dependency_overrides[get_session] = override_session
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        first = await client.get("/admin/health")
-        second = await client.get("/admin/health")
+        first = await client.get("/admin/health", headers=ADMIN_HEADERS)
+        second = await client.get("/admin/health", headers=ADMIN_HEADERS)
 
     assert first.status_code == 200
     assert second.status_code == 200
@@ -97,7 +127,7 @@ async def test_admin_provider_check_updates_health(monkeypatch) -> None:
 
     app.dependency_overrides[get_session] = override_session
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        response = await client.post("/admin/check-provider")
+        response = await client.post("/admin/check-provider", headers=ADMIN_HEADERS)
 
     assert response.status_code == 200
     assert response.json()["service_name"] == "data_provider"
@@ -122,7 +152,7 @@ async def test_admin_smoke_action_clears_dashboard_cache() -> None:
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         await client.get("/dashboard/summary?max_age_seconds=30")
         cached = await client.get("/dashboard/summary?max_age_seconds=30")
-        smoke = await client.post("/admin/run-smoke")
+        smoke = await client.post("/admin/run-smoke", headers=ADMIN_HEADERS)
         after = await client.get("/dashboard/summary?max_age_seconds=30")
 
     assert cached.json()["cache_hit"] is True

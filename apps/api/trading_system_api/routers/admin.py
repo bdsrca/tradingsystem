@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from trading_system_api.admin_service import (
@@ -20,7 +20,18 @@ from trading_system_api.schemas import (
     AdminSettingsUpdate,
 )
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+ADMIN_PASSCODE = "8888"
+
+
+def require_admin_passcode(x_admin_passcode: str | None = Header(default=None)) -> None:
+    if x_admin_passcode != ADMIN_PASSCODE:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Admin passcode required",
+        )
+
+
+router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin_passcode)])
 
 
 @router.get("/settings", response_model=AdminSettingsRead)
