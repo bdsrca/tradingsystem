@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from trading_system_api.database import get_session
@@ -13,8 +13,16 @@ from trading_system_api.models import (
     PaperSimulationRun,
     PaperTrade,
     Signal,
+    WatchlistItem,
 )
-from trading_system_api.schemas import PaperMetricsRead, PaperRunRead, PaperSnapshotRead
+from trading_system_api.schemas import (
+    PaperMetricsRead,
+    PaperOverviewRead,
+    PaperOverviewRowRead,
+    PaperOverviewWindowRead,
+    PaperRunRead,
+    PaperSnapshotRead,
+)
 from trading_system_data.symbols import normalize_symbol
 from trading_system_quant.paper import (
     PaperBar,
@@ -26,6 +34,31 @@ from trading_system_quant.paper import (
 )
 
 router = APIRouter(prefix="/paper", tags=["paper"])
+
+
+@router.get("/overview", response_model=PaperOverviewRead)
+async def get_paper_overview(session: AsyncSession = Depends(get_session)) -> PaperOverviewRead:
+    watchlist = (
+        await session.execute(
+            select(WatchlistItem)
+            .where(WatchlistItem.enabled.is_(True))
+            .order_by(WatchlistItem.ticker, WatchlistItem.exchange)
+        )
+    ).scalars().all()
+    rows = []
+    for item in watchlist:
+        rows.append(
+            PaperOverviewRowRead(
+                ticker=item.ticker,
+                exchange=item.exchange,
+                market=item.market,
+                display_name=item.display_name,
+                one_year=await _latest_paper_window(session, item, 1),
+                two_year=await _latest_paper_window(session, item, 2),
+                three_year=await _latest_paper_window(session, item, 3),
+            )
+        )
+    return PaperOverviewRead(rows=rows)
 
 
 @router.get("/{symbol}/latest", response_model=PaperRunRead)
@@ -200,6 +233,45 @@ async def run_paper_validation(
     await session.refresh(run)
 
     return _paper_run_read(run, metrics, snapshots)
+
+
+async def _latest_paper_window(
+    session: AsyncSession,
+    item: WatchlistItem,
+    window_years: int,
+) -> PaperOverviewWindowRead:
+    run = (
+        await session.execute(
+            select(PaperSimulationRun)
+            .where(
+                PaperSimulationRun.ticker == item.ticker,
+                PaperSimulationRun.exchange == item.exchange,
+                PaperSimulationRun.window_years == window_years,
+            )
+            .order_by(desc(PaperSimulationRun.created_at))
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if run is None:
+        return PaperOverviewWindowRead(
+            status="not_simulated",
+            total_return_pct=None,
+            max_drawdown_pct=None,
+            win_rate_pct=None,
+            trade_count=None,
+            simulation_run_id=None,
+            created_at=None,
+        )
+    metrics = run.metrics or {}
+    return PaperOverviewWindowRead(
+        status="simulated",
+        total_return_pct=metrics.get("total_return_pct"),
+        max_drawdown_pct=metrics.get("max_drawdown_pct"),
+        win_rate_pct=metrics.get("win_rate_pct"),
+        trade_count=metrics.get("trade_count"),
+        simulation_run_id=run.id,
+        created_at=run.created_at,
+    )
 
 
 def _paper_run_read(

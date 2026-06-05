@@ -150,6 +150,28 @@ export type PaperRun = {
   snapshots: PaperSnapshot[];
 };
 
+export type PaperOverviewWindow = {
+  status: string;
+  total_return_pct: number | null;
+  max_drawdown_pct: number | null;
+  win_rate_pct: number | null;
+  trade_count: number | null;
+  simulation_run_id: string | null;
+  created_at: string | null;
+};
+
+export type PaperOverview = {
+  rows: Array<{
+    ticker: string;
+    exchange: string;
+    market: string;
+    display_name: string | null;
+    one_year: PaperOverviewWindow;
+    two_year: PaperOverviewWindow;
+    three_year: PaperOverviewWindow;
+  }>;
+};
+
 export type DailyTickerResult = {
   id: string;
   ticker: string;

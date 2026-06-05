@@ -186,6 +186,30 @@ class PaperRunRead(BaseModel):
     snapshots: list[PaperSnapshotRead]
 
 
+class PaperOverviewWindowRead(BaseModel):
+    status: str
+    total_return_pct: float | None
+    max_drawdown_pct: float | None
+    win_rate_pct: float | None
+    trade_count: int | None
+    simulation_run_id: str | None
+    created_at: datetime | None
+
+
+class PaperOverviewRowRead(BaseModel):
+    ticker: str
+    exchange: str
+    market: str
+    display_name: str | None
+    one_year: PaperOverviewWindowRead
+    two_year: PaperOverviewWindowRead
+    three_year: PaperOverviewWindowRead
+
+
+class PaperOverviewRead(BaseModel):
+    rows: list[PaperOverviewRowRead]
+
+
 class KronosHorizonRead(BaseModel):
     horizon_days: int
     expected_return_pct: float
