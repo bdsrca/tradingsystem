@@ -104,6 +104,62 @@ class SignalAccuracyRead(BaseModel):
     average_return_pct: float
 
 
+class DashboardLatestRunRead(BaseModel):
+    id: str | None
+    status: str
+    started_at: datetime | None
+    succeeded_count: int
+    failed_count: int
+    skipped_count: int
+    stale_count: int
+    degraded_count: int
+    email_sent: bool
+
+
+class DashboardAttentionItemRead(BaseModel):
+    ticker: str
+    exchange: str
+    severity: str
+    reason: str
+    signal: str | None
+    confidence: float | None
+    href: str
+
+
+class DashboardWatchlistRowRead(BaseModel):
+    ticker: str
+    exchange: str
+    market: str
+    display_name: str | None
+    latest_signal: str | None
+    confidence: float | None
+    data_freshness: str
+    last_analyzed_at: datetime | None
+    accuracy_20d_win_rate_pct: float | None
+    paper_1y_return_pct: float | None
+    paper_1y_max_drawdown_pct: float | None
+    caveat: str | None
+
+
+class DashboardAccuracySnapshotRead(BaseModel):
+    window: int
+    evaluated_count: int
+    win_rate_pct: float
+    average_return_pct: float
+    backfilled_excluded_count: int
+
+
+class DashboardSummaryRead(BaseModel):
+    latest_run: DashboardLatestRunRead | None
+    attention_items: list[DashboardAttentionItemRead]
+    watchlist_rows: list[DashboardWatchlistRowRead]
+    accuracy_snapshot: DashboardAccuracySnapshotRead
+    paper_snapshot: dict
+    service_warnings: list[str]
+    generated_at: datetime
+    cache_hit: bool
+
+
 class PaperMetricsRead(BaseModel):
     total_return_pct: float
     max_drawdown_pct: float

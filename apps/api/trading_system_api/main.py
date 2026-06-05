@@ -8,7 +8,16 @@ from trading_system_api.auth import add_basic_auth_if_enabled
 from trading_system_api.config import get_settings
 from trading_system_api.daily_service import run_daily_analysis
 from trading_system_api.database import SessionLocal
-from trading_system_api.routers import analysis, daily, kronos, market_data, paper, signals, watchlist
+from trading_system_api.routers import (
+    analysis,
+    daily,
+    dashboard,
+    kronos,
+    market_data,
+    paper,
+    signals,
+    watchlist,
+)
 from trading_system_api.scheduler import build_daily_scheduler
 
 
@@ -52,6 +61,7 @@ def create_app() -> FastAPI:
     app.include_router(market_data.router)
     app.include_router(analysis.router)
     app.include_router(signals.router)
+    app.include_router(dashboard.router)
     app.include_router(paper.router)
     app.include_router(kronos.router)
     app.include_router(daily.router)

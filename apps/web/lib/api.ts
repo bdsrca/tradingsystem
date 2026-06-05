@@ -52,6 +52,54 @@ export type SignalAccuracy = {
   average_return_pct: number;
 };
 
+export type DashboardSummary = {
+  latest_run: {
+    id: string | null;
+    status: string;
+    started_at: string | null;
+    succeeded_count: number;
+    failed_count: number;
+    skipped_count: number;
+    stale_count: number;
+    degraded_count: number;
+    email_sent: boolean;
+  } | null;
+  attention_items: Array<{
+    ticker: string;
+    exchange: string;
+    severity: string;
+    reason: string;
+    signal: string | null;
+    confidence: number | null;
+    href: string;
+  }>;
+  watchlist_rows: Array<{
+    ticker: string;
+    exchange: string;
+    market: string;
+    display_name: string | null;
+    latest_signal: string | null;
+    confidence: number | null;
+    data_freshness: string;
+    last_analyzed_at: string | null;
+    accuracy_20d_win_rate_pct: number | null;
+    paper_1y_return_pct: number | null;
+    paper_1y_max_drawdown_pct: number | null;
+    caveat: string | null;
+  }>;
+  accuracy_snapshot: {
+    window: number;
+    evaluated_count: number;
+    win_rate_pct: number;
+    average_return_pct: number;
+    backfilled_excluded_count: number;
+  };
+  paper_snapshot: Record<string, unknown>;
+  service_warnings: string[];
+  generated_at: string;
+  cache_hit: boolean;
+};
+
 export type KronosForecastPoint = {
   time: string;
   close: number;

@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from trading_system_api.config import Settings, get_settings
 from trading_system_api.daily_service import run_daily_analysis
+from trading_system_api.dashboard_cache import clear_dashboard_summary_cache
 from trading_system_api.database import get_session
 from trading_system_api.models import DailyWorkerRun, DailyWorkerTickerResult
 from trading_system_api.schemas import DailyRunRead, DailyTickerResultRead
@@ -19,6 +20,7 @@ async def run_daily_now(
     settings: Settings = Depends(get_settings),
 ) -> DailyRunRead:
     run = await run_daily_analysis(session, settings, triggered_by="manual")
+    clear_dashboard_summary_cache()
     return await _read_run(session, run.id)
 
 

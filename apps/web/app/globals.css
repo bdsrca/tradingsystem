@@ -257,6 +257,34 @@ td a {
   color: #b42318;
 }
 
+.freshness-unknown {
+  background: #eef2f7;
+  color: var(--muted);
+}
+
+.severity {
+  border-radius: 999px;
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 8px;
+}
+
+.severity-error {
+  background: #fde8e4;
+  color: #b42318;
+}
+
+.severity-warning {
+  background: #fff4d8;
+  color: #8a5a00;
+}
+
+.severity-signal {
+  background: #e7f6ef;
+  color: #1f7a5c;
+}
+
 .chart-section {
   margin-top: 24px;
 }
