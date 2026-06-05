@@ -310,6 +310,44 @@ async def test_admin_llm_check_does_not_auto_start_remote_ollama(monkeypatch) ->
 
 
 @pytest.mark.anyio
+async def test_admin_llm_check_uses_deepseek_key_and_model(monkeypatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-test")
+    get_settings.cache_clear()
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    Session = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    app = create_app()
+
+    async def override_session():
+        async with Session() as session:
+            yield session
+
+    app.dependency_overrides[get_session] = override_session
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        await client.patch(
+            "/admin/settings",
+            headers=ADMIN_HEADERS,
+            json={
+                "llm_provider_type": "deepseek",
+                "llm_base_url": "https://api.deepseek.com",
+                "llm_model_name": "deepseek-v4-flash",
+            },
+        )
+        response = await client.post("/admin/test-llm", headers=ADMIN_HEADERS)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["details_json"]["provider"] == "deepseek"
+    assert body["details_json"]["api_key"] == "configured"
+    assert body["details_json"]["base_url"] == "https://api.deepseek.com"
+    assert body["details_json"]["model"] == "deepseek-v4-flash"
+
+
+@pytest.mark.anyio
 async def test_admin_smoke_action_clears_dashboard_cache() -> None:
     get_settings.cache_clear()
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")

@@ -131,7 +131,6 @@ async def check_data_provider(session: AsyncSession, settings: Settings) -> Admi
 async def check_llm(session: AsyncSession, settings: Settings) -> AdminActionResultRead:
     row_settings = await get_or_create_app_setting(session)
     provider = row_settings.llm_provider_type
-    remote_key = _remote_llm_api_key()
     if provider == "ollama":
         if not row_settings.llm_base_url or not row_settings.llm_model_name:
             status = "degraded"
@@ -148,9 +147,15 @@ async def check_llm(session: AsyncSession, settings: Settings) -> AdminActionRes
                 row_settings.llm_model_name,
             )
     else:
+        remote_key = _remote_llm_api_key(settings, provider)
         status = "ok" if remote_key else "unreachable"
-        details = {"provider": provider, "api_key": _secret_status(remote_key)}
-        message = "Remote LLM key configured" if status == "ok" else "Remote LLM key missing"
+        details = {
+            "provider": provider,
+            "base_url": row_settings.llm_base_url,
+            "model": row_settings.llm_model_name,
+            "api_key": _secret_status(remote_key),
+        }
+        message = f"{provider} key configured" if status == "ok" else f"{provider} key missing"
     row = await upsert_service_health(session, "api", status, details=details)
     return _action_from_health(row, message)
 
@@ -254,7 +259,7 @@ def _settings_to_read(row: AppSetting, settings: Settings) -> AdminSettingsRead:
         email_debounce_days=row.email_debounce_days,
         secrets=AdminSecretsRead(
             twelve_data_api_key=_secret_status(settings.twelve_data_api_key),
-            remote_llm_api_key=_secret_status(_remote_llm_api_key()),
+            remote_llm_api_key=_secret_status(_remote_llm_api_key(settings)),
             smtp_password=_secret_status(settings.smtp_password),
         ),
     )
@@ -283,8 +288,15 @@ def _secret_status(value: str | None) -> str:
     return "configured" if value else "missing"
 
 
-def _remote_llm_api_key() -> str | None:
-    return os.getenv("OPENAI_API_KEY") or os.getenv("DEEPSEEK_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
+def _remote_llm_api_key(settings: Settings, provider: str | None = None) -> str | None:
+    provider_key = (provider or "").lower()
+    if provider_key == "openai":
+        return settings.openai_api_key
+    if provider_key == "deepseek":
+        return settings.deepseek_api_key
+    if provider_key == "anthropic":
+        return settings.anthropic_api_key
+    return settings.openai_api_key or settings.deepseek_api_key or settings.anthropic_api_key
 
 
 async def _check_local_ollama(base_url: str, model_name: str) -> tuple[str, str, dict]:

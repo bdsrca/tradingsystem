@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from trading_system_agents.config import AgentConfigError, AgentRunConfig
 
 
-SUPPORTED_LLM_PROVIDERS = frozenset({"openai", "ollama"})
+SUPPORTED_LLM_PROVIDERS = frozenset({"deepseek", "openai", "ollama"})
 
 
 @dataclass(frozen=True)
@@ -56,6 +56,9 @@ class TradingAgentsLLMConfig:
                 overrides["OPENAI_API_KEY"] = self.api_key
             if self.base_url:
                 overrides["OPENAI_BASE_URL"] = self.base_url
+        elif self.provider == "deepseek":
+            if self.api_key:
+                overrides["DEEPSEEK_API_KEY"] = self.api_key
         elif self.provider == "ollama" and self.base_url:
             overrides["OLLAMA_BASE_URL"] = self.base_url
 

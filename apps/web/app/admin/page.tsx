@@ -15,6 +15,26 @@ type EditableAdminSettings = Omit<AdminSettings, "secrets">;
 const ADMIN_HEADER = "X-Admin-Passcode";
 const ADMIN_PASSCODE = "8888";
 const ADMIN_SESSION_KEY = "trading-system-admin-passcode";
+const LLM_PRESETS = {
+  openai: {
+    baseUrl: null,
+    modelName: "gpt-4o-mini",
+    debateRounds: 1,
+    riskRounds: 1
+  },
+  ollama: {
+    baseUrl: "http://127.0.0.1:11434",
+    modelName: "nexusriot/Qwen3.5-Uncensored-HauhauCS-Aggressive:9b",
+    debateRounds: 2,
+    riskRounds: 2
+  },
+  deepseek: {
+    baseUrl: "https://api.deepseek.com",
+    modelName: "deepseek-v4-flash",
+    debateRounds: 1,
+    riskRounds: 1
+  }
+} as const;
 
 export default function AdminPage() {
   const [settings, setSettings] = useState<AdminSettings | null>(null);
@@ -150,6 +170,22 @@ export default function AdminPage() {
     setDraft((current) => (current ? { ...current, [key]: value } : current));
   }
 
+  function applyLlmPreset(provider: string) {
+    const preset = LLM_PRESETS[provider as keyof typeof LLM_PRESETS];
+    setDraft((current) =>
+      current && preset
+        ? {
+            ...current,
+            llm_provider_type: provider,
+            llm_base_url: preset.baseUrl,
+            llm_model_name: preset.modelName,
+            max_debate_rounds: preset.debateRounds,
+            max_risk_discuss_rounds: preset.riskRounds
+          }
+        : current
+    );
+  }
+
   return (
     <main className="shell">
       <header className="topbar">
@@ -212,7 +248,7 @@ export default function AdminPage() {
                   <label className="field">
                     <span>LLM provider</span>
                     <select
-                      onChange={(event) => update("llm_provider_type", event.target.value)}
+                      onChange={(event) => applyLlmPreset(event.target.value)}
                       value={draft.llm_provider_type}
                     >
                       <option value="openai">OpenAI</option>

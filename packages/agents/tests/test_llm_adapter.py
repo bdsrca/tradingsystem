@@ -49,6 +49,48 @@ def test_openai_environment_sets_and_restores_api_key(monkeypatch: pytest.Monkey
     assert "TRADINGAGENTS_LLM_PROVIDER" not in os.environ
 
 
+def test_deepseek_config_uses_upstream_deepseek_provider_and_backend_url() -> None:
+    llm = TradingAgentsLLMConfig(
+        provider="deepseek",
+        deep_model="deepseek-v4-flash",
+        quick_model="deepseek-v4-flash",
+        base_url="https://api.deepseek.com",
+    )
+
+    config = llm.to_tradingagents_config(AgentRunConfig(llm_provider="deepseek"))
+
+    assert config["llm_provider"] == "deepseek"
+    assert config["deep_think_llm"] == "deepseek-v4-flash"
+    assert config["quick_think_llm"] == "deepseek-v4-flash"
+    assert config["backend_url"] == "https://api.deepseek.com"
+    assert config["max_debate_rounds"] == 1
+    assert config["max_risk_discuss_rounds"] == 1
+
+
+def test_deepseek_environment_sets_and_restores_deepseek_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("TRADINGAGENTS_LLM_PROVIDER", raising=False)
+    llm = TradingAgentsLLMConfig(
+        provider="deepseek",
+        deep_model="deepseek-v4-flash",
+        quick_model="deepseek-v4-flash",
+        base_url="https://api.deepseek.com",
+        api_key="sk-deepseek-test",
+    )
+
+    with tradingagents_llm_environment(llm):
+        assert os.environ["DEEPSEEK_API_KEY"] == "sk-deepseek-test"
+        assert os.environ["TRADINGAGENTS_LLM_PROVIDER"] == "deepseek"
+        assert os.environ["TRADINGAGENTS_LLM_BACKEND_URL"] == "https://api.deepseek.com"
+        assert "OPENAI_API_KEY" not in os.environ
+
+    assert "DEEPSEEK_API_KEY" not in os.environ
+    assert "TRADINGAGENTS_LLM_PROVIDER" not in os.environ
+
+
 def test_ollama_environment_uses_ollama_base_url_without_openai_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
