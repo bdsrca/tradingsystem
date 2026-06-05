@@ -19,7 +19,7 @@ from trading_system_api.routers import (
     signals,
     watchlist,
 )
-from trading_system_api.scheduler import build_daily_scheduler
+from trading_system_api.scheduler import build_daily_scheduler, reschedule_daily_scheduler
 
 
 @asynccontextmanager
@@ -33,13 +33,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
-        if scheduler is not None:
-            scheduler.shutdown(wait=False)
+        active_scheduler = getattr(app.state, "scheduler", None)
+        if active_scheduler is not None:
+            active_scheduler.shutdown(wait=False)
+            app.state.scheduler = None
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title="Trading System API", version="0.1.0", lifespan=lifespan)
+    app.state.scheduler = None
+    app.state.reschedule_daily_scheduler = lambda saved_settings: reschedule_daily_scheduler(
+        app.state,
+        saved_settings,
+        _scheduled_daily_job,
+    )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[

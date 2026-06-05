@@ -195,6 +195,8 @@ def _attention_items(
             continue
         if result and (result.status == "degraded" or result.data_freshness == "stale_used"):
             reason = result.error_message or "Stale cache or degraded analysis"
+            if result.data_freshness == "stale_used" and "stale" not in reason.lower():
+                reason = f"Stale cache: {reason}"
             items.append(_attention(row, "warning", reason))
             continue
         if (

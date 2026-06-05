@@ -111,6 +111,82 @@ async def test_admin_health_upserts_one_row_per_service() -> None:
 
 
 @pytest.mark.anyio
+async def test_admin_provider_action_upserts_existing_health_row(monkeypatch) -> None:
+    monkeypatch.setenv("TWELVE_DATA_API_KEY", "fake")
+    get_settings.cache_clear()
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    Session = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    app = create_app()
+
+    async def override_session():
+        async with Session() as session:
+            yield session
+
+    app.dependency_overrides[get_session] = override_session
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        first = await client.post("/admin/check-provider", headers=ADMIN_HEADERS)
+        second = await client.post("/admin/check-provider", headers=ADMIN_HEADERS)
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    async with Session() as session:
+        rows = (
+            await session.execute(
+                select(ServiceHealthCheck).where(ServiceHealthCheck.service_name == "data_provider")
+            )
+        ).scalars().all()
+        assert len(rows) == 1
+        assert rows[0].status == "ok"
+
+
+@pytest.mark.anyio
+async def test_admin_scheduler_settings_patch_triggers_reschedule() -> None:
+    get_settings.cache_clear()
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    Session = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    app = create_app()
+    rescheduled: list[tuple[bool, int, int, str]] = []
+
+    def record_reschedule(settings) -> None:
+        rescheduled.append(
+            (
+                settings.scheduler_enabled,
+                settings.daily_trigger_hour,
+                settings.daily_trigger_minute,
+                settings.scheduler_timezone,
+            )
+        )
+
+    app.state.reschedule_daily_scheduler = record_reschedule
+
+    async def override_session():
+        async with Session() as session:
+            yield session
+
+    app.dependency_overrides[get_session] = override_session
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.patch(
+            "/admin/settings",
+            headers=ADMIN_HEADERS,
+            json={
+                "scheduler_enabled": True,
+                "daily_trigger_hour": 18,
+                "daily_trigger_minute": 15,
+                "scheduler_timezone": "America/Toronto",
+            },
+        )
+
+    assert response.status_code == 200
+    assert rescheduled == [(True, 18, 15, "America/Toronto")]
+
+
+@pytest.mark.anyio
 async def test_admin_provider_check_updates_health(monkeypatch) -> None:
     monkeypatch.setenv("TWELVE_DATA_API_KEY", "fake")
     get_settings.cache_clear()

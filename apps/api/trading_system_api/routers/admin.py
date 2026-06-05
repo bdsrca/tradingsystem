@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from trading_system_api.admin_service import (
@@ -45,10 +45,14 @@ async def read_admin_settings(
 @router.patch("/settings", response_model=AdminSettingsRead)
 async def patch_admin_settings(
     payload: AdminSettingsUpdate,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
 ) -> AdminSettingsRead:
     result = await update_app_settings(session, payload, settings)
+    reschedule = getattr(request.app.state, "reschedule_daily_scheduler", None)
+    if callable(reschedule):
+        reschedule(result)
     clear_dashboard_summary_cache()
     return result
 
