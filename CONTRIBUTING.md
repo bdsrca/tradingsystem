@@ -167,6 +167,26 @@ set `checkpoint_enabled=False`, continue the agent run, and record
 `checkpoint_skipped=True` plus the skip reason in agent report/run metadata when
 the Phase 4 schema exists.
 
+`packages/agents/trading_system_agents/tradingagents_e2e.py` is the Phase 4B
+mock E2E seam for wiring runtime dirs, LLM env, checkpoint pointer metadata,
+snapshot context, split timeouts, and output adaptation together before a live
+TradingAgents dependency is imported. Its path contract is source-driven:
+`config["data_cache_dir"]` points at the persistent checkpoint/cache directory,
+while `config["memory_log_path"]` and `config["results_dir"]` point inside the
+fresh per-run directory. These paths must not collapse to the same directory.
+
+Snapshot context must be set inside the synchronous executor function, not in
+the outer async caller. Python `ContextVar` values do not automatically cross
+into `ThreadPoolExecutor` worker threads. The E2E runner wraps the graph step
+with `run_with_snapshot(snapshot, ...)` inside the worker function so vendor
+bridge calls see the active snapshot and the `finally` reset happens in the
+same thread.
+
+Mock E2E final decisions must include a parseable TradingAgents rating such as
+`**Rating**: Buy`, `**Rating**: Hold`, or `**Rating**: Sell`. The signal path is
+deterministic and derives this platform's `BUY`/`HOLD`/`SELL` style label from
+the output adapter's final report summary.
+
 TradingAgents can run in the main Python environment if dependency dry-run
 checks pass. Its synchronous graph execution must be wrapped with an executor or
 worker boundary before exposing it from FastAPI. Checkpoint support should reuse

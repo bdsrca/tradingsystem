@@ -239,6 +239,9 @@ Tasks:
 - [x] Verify TradingAgents `AgentState` keys at the pinned commit before writing the output adapter: `market_report`, `sentiment_report`, `news_report`, `fundamentals_report`, `investment_debate_state`, `investment_plan`, `trader_investment_plan`, `risk_debate_state`, and `final_trade_decision`.
 - [x] Add an output adapter that parses `final_state` directly into `AgentReport` rows without reading `_log_state()` JSON files. Missing/empty report fields degrade the corresponding row instead of raising `KeyError`; `structured_json` stores adapter-owned summaries rather than parsed LLM JSON.
 - [ ] Integrate output adapter rows into the Phase 4 API/DB storage path after the Phase 4 Alembic migration exists.
+- [x] Add a mock E2E TradingAgents runner seam that wires Phase 4B runtime dirs, persistent checkpoint cache, per-run memory log, LLM environment, executor-thread snapshot context, split timeouts, signal extraction, and output adapter reports together.
+- [x] Add E2E seam tests for the three runner junction risks: persistent checkpoint path must differ from per-run memory/results paths, `ContextVar` snapshot setup happens inside the executor thread, and mock `final_trade_decision` contains a parseable rating for deterministic signal extraction.
+- [ ] Replace the mock graph step with the pinned `TradingAgentsGraph` construction after dependency checks and no-network workflow tests are in place.
 - [ ] Add decision memory persistence.
 - [ ] Commit.
 
