@@ -354,6 +354,33 @@ Tasks:
 - [ ] Add Kronos disagreement UI state.
 - [x] Commit.
 
+## Phase 8: Dashboard And Admin Console
+
+Goal: split the daily decision surface from the operations surface.
+
+Deliverables:
+
+- Shared navigation: `Watchlist | Dashboard | Paper | Accuracy | Admin`.
+- Lightweight root overview with Dashboard entry.
+- Dashboard summary API with process-local TTL cache.
+- Dashboard page for latest run status, attention items, and watchlist scan.
+- Paper overview page and API.
+- Admin settings page for non-secret runtime settings.
+- Env-only secret status display.
+- Service health upsert table.
+- Admin actions for provider, LLM, email, smoke test, and manual daily run.
+
+Tasks:
+
+- [x] Write and commit design spec.
+- [x] Write and commit implementation plan.
+- [x] Add shared navigation shell.
+- [x] Add dashboard summary API and page.
+- [x] Add paper overview API and page.
+- [x] Add admin settings and health API/page.
+- [x] Add admin actions and cache invalidation.
+- [x] Commit and push.
+
 ## Recommended Starting Point
 
 Start with Phase 0 and Phase 1. Do not start Kronos or TradingAgents integration until the local app can store watchlist items, fetch OHLCV, and show a candlestick chart.

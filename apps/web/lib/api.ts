@@ -210,6 +210,13 @@ export type AdminHealth = {
   }>;
 };
 
+export type AdminActionResult = {
+  service_name: string;
+  status: string;
+  message: string;
+  details_json: Record<string, unknown>;
+};
+
 export type DailyTickerResult = {
   id: string;
   ticker: string;

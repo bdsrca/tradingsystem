@@ -3,7 +3,12 @@
 import { useEffect, useState } from "react";
 
 import AppNav from "../../components/AppNav";
-import { fetchJson, type AdminHealth, type AdminSettings } from "../../lib/api";
+import {
+  fetchJson,
+  type AdminActionResult,
+  type AdminHealth,
+  type AdminSettings
+} from "../../lib/api";
 
 type EditableAdminSettings = Omit<AdminSettings, "secrets">;
 
@@ -14,6 +19,7 @@ export default function AdminPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [runningAction, setRunningAction] = useState<string | null>(null);
 
   async function loadAdmin() {
     setError(null);
@@ -54,6 +60,36 @@ export default function AdminPage() {
       setError(err instanceof Error ? err.message : "Failed to save settings");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function runAdminAction(label: string, path: string) {
+    setRunningAction(label);
+    setStatus(null);
+    setError(null);
+    try {
+      const result = await fetchJson<AdminActionResult>(path, { method: "POST" });
+      setStatus(`${label}: ${result.message}`);
+      setHealth(await fetchJson<AdminHealth>("/admin/health"));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : `${label} failed`);
+    } finally {
+      setRunningAction(null);
+    }
+  }
+
+  async function runDailyNow() {
+    setRunningAction("Run daily now");
+    setStatus(null);
+    setError(null);
+    try {
+      await fetchJson("/daily/run", { method: "POST" });
+      setStatus("Daily run completed");
+      setHealth(await fetchJson<AdminHealth>("/admin/health"));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Daily run failed");
+    } finally {
+      setRunningAction(null);
     }
   }
 
@@ -251,14 +287,42 @@ export default function AdminPage() {
           <section className="admin-section" aria-label="Jobs and logs">
             <h2>Jobs & Logs</h2>
             <div className="action-row">
-              <button disabled type="button">
-                Run daily now
+              <button
+                disabled={runningAction !== null}
+                onClick={runDailyNow}
+                type="button"
+              >
+                {runningAction === "Run daily now" ? "Running" : "Run daily now"}
               </button>
-              <button disabled type="button">
-                Run smoke test
+              <button
+                disabled={runningAction !== null}
+                onClick={() => void runAdminAction("Run smoke test", "/admin/run-smoke")}
+                type="button"
+              >
+                {runningAction === "Run smoke test" ? "Running" : "Run smoke test"}
+              </button>
+              <button
+                disabled={runningAction !== null}
+                onClick={() => void runAdminAction("Check provider", "/admin/check-provider")}
+                type="button"
+              >
+                Check provider
+              </button>
+              <button
+                disabled={runningAction !== null}
+                onClick={() => void runAdminAction("Test LLM", "/admin/test-llm")}
+                type="button"
+              >
+                Test LLM
+              </button>
+              <button
+                disabled={runningAction !== null}
+                onClick={() => void runAdminAction("Test email", "/admin/test-email")}
+                type="button"
+              >
+                Test email
               </button>
             </div>
-            <p className="muted">Admin actions are wired in the next implementation step.</p>
           </section>
 
           <section className="admin-section" aria-label="Safety notes">

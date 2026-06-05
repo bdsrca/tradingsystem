@@ -227,6 +227,13 @@ class AdminHealthRead(BaseModel):
     services: list[ServiceHealthRead]
 
 
+class AdminActionResultRead(BaseModel):
+    service_name: str
+    status: str
+    message: str
+    details_json: dict
+
+
 class PaperMetricsRead(BaseModel):
     total_return_pct: float
     max_drawdown_pct: float

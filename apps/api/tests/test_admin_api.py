@@ -78,3 +78,53 @@ async def test_admin_health_upserts_one_row_per_service() -> None:
         rows = (await session.execute(select(ServiceHealthCheck))).scalars().all()
         assert len({row.service_name for row in rows}) == len(rows)
         assert {"api", "db"}.issubset({row.service_name for row in rows})
+
+
+@pytest.mark.anyio
+async def test_admin_provider_check_updates_health(monkeypatch) -> None:
+    monkeypatch.setenv("TWELVE_DATA_API_KEY", "fake")
+    get_settings.cache_clear()
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    Session = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    app = create_app()
+
+    async def override_session():
+        async with Session() as session:
+            yield session
+
+    app.dependency_overrides[get_session] = override_session
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post("/admin/check-provider")
+
+    assert response.status_code == 200
+    assert response.json()["service_name"] == "data_provider"
+    assert response.json()["status"] == "ok"
+
+
+@pytest.mark.anyio
+async def test_admin_smoke_action_clears_dashboard_cache() -> None:
+    get_settings.cache_clear()
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    Session = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    app = create_app()
+
+    async def override_session():
+        async with Session() as session:
+            yield session
+
+    app.dependency_overrides[get_session] = override_session
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        await client.get("/dashboard/summary?max_age_seconds=30")
+        cached = await client.get("/dashboard/summary?max_age_seconds=30")
+        smoke = await client.post("/admin/run-smoke")
+        after = await client.get("/dashboard/summary?max_age_seconds=30")
+
+    assert cached.json()["cache_hit"] is True
+    assert smoke.status_code == 200
+    assert after.json()["cache_hit"] is False
