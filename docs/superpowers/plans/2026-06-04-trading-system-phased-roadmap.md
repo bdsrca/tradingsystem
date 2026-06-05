@@ -208,26 +208,27 @@ Tasks:
 - [ ] Pin TradingAgents to a specific commit or version before importing its components.
 - [ ] Run dependency conflict checks with Kronos and TradingAgents enabled together.
 - [ ] Inventory TradingAgents internal external-data tools before enabling workflow tests. At the pinned commit this must include `tradingagents/dataflows/interface.py`, `VENDOR_METHODS`, `route_to_vendor()`, and the direct yfinance paths in `tradingagents/graph/trading_graph.py`.
-- [ ] Record the direct yfinance escape-path decision in `CONTRIBUTING.md`: `_fetch_returns()` is disabled or wrapped for Phase 4 agent runs, and `resolve_instrument_identity()` must use stored metadata or fail open without network by default.
+- [x] Record the direct yfinance escape-path decision in `CONTRIBUTING.md`: `_fetch_returns()` is disabled or wrapped for Phase 4 agent runs, and `resolve_instrument_identity()` must use stored metadata or fail open without network by default.
 - [ ] Verify that `resolve_instrument_identity()` at the pinned TradingAgents commit calls `yf.Ticker().info` network-first. Patch or wrap this function in the runner so it uses snapshot `display_name` directly and never issues a network request. Record the patch location and method in `CONTRIBUTING.md`.
-- [ ] Write failing tests for registering a platform vendor through TradingAgents' vendor-routing layer.
-- [ ] Implement the platform vendor bridge for snapshot-backed market data, indicators, fundamentals, and news where the upstream method shape allows it.
-- [ ] Write failing no-network tests that monkeypatch `yfinance.download` and `yfinance.Ticker` to raise immediately during agent workflow execution.
-- [ ] Add HTTP-layer no-network tests with `pytest-httpx` or `respx`, blocking external market-data hostnames such as `finance.yahoo.com`, `query1.finance.yahoo.com`, `twelvedata.com`, and `finnhub.io`. Split tests into unit tests with full network blocked and explicit integration tests where configured LLM endpoints may be allowed while market-data hosts remain blocked.
+- [x] Write failing tests for registering a platform vendor through TradingAgents' vendor-routing layer.
+- [x] Implement the platform vendor bridge for snapshot-backed market data, indicators, fundamentals, and news where the upstream method shape allows it.
+- [x] Write failing no-network tests that monkeypatch `yfinance.download` and `yfinance.Ticker` to raise immediately during agent workflow execution.
+- [x] Add HTTP-layer no-network tests with `pytest-httpx`, `respx`, or a native HTTPX transport guard, blocking external market-data hostnames such as `finance.yahoo.com`, `query1.finance.yahoo.com`, `twelvedata.com`, and `finnhub.io`. Split tests into unit tests with full network blocked and explicit integration tests where configured LLM endpoints may be allowed while market-data hosts remain blocked.
 - [ ] Implement data-tool wrappers and escape-path guards before constructing the TradingAgents workflow in tests.
-- [ ] Ensure `vendor_bridge` snapshot context is reset in a `finally` block inside `_sync_run` so `ThreadPoolExecutor` thread reuse cannot carry a stale snapshot from one ticker analysis into the next. Prefer `contextvars.ContextVar` over `threading.local`. Add a test that runs two tickers sequentially on the same executor thread and asserts each gets only its own snapshot data.
+- [x] Ensure `vendor_bridge` snapshot context is reset in a `finally` block inside `_sync_run` so `ThreadPoolExecutor` thread reuse cannot carry a stale snapshot from one ticker analysis into the next. Prefer `contextvars.ContextVar` over `threading.local`. Add a test that runs two tickers sequentially on the same executor thread and asserts each gets only its own snapshot data.
 - [ ] Write failing tests for provider config and Ollama base URL.
 - [ ] Implement LLM provider adapter.
 - [ ] Write failing tests for agent data anchoring.
 - [ ] Implement snapshot-to-agent input adapter.
-- [ ] Whitelist the permitted analyst combinations for V1. Only `["market", "news", "fundamentals"]` is allowed. The runner must reject unsupported analysts such as `social_media` or `insider` with a clear config error before constructing `TradingAgentsGraph`.
+- [x] Whitelist the permitted analyst combinations for V1. Only `["market", "news", "fundamentals"]` is allowed. The runner must reject unsupported analysts such as `social_media` or `insider` with a clear config error before constructing `TradingAgentsGraph`.
 - [ ] Make `max_debate_rounds` and `max_risk_discuss_rounds` configurable via settings. Remote models default to one round; Ollama/local small models default to two rounds. Document that single-round debate with small local models may increase degraded structured-output rates.
 - [ ] Write failing tests for async runner timeout/degraded behavior around synchronous TradingAgents graph execution.
 - [ ] Implement the TradingAgents runner with `run_in_executor` or an equivalent worker boundary.
 - [ ] Integrate or wrap TradingAgents analyst workflow only after the external-data inventory and wrappers are in place, so test runs cannot leak live yfinance/provider calls.
-- [ ] Write failing tests for hallucination validator.
-- [ ] Implement validator and one retry path. The validator must flag unsupported numbers and future event dates that cannot be sourced from `snapshot.news_items`, `snapshot.fundamentals`, or explicit event records.
-- [ ] Define `agent_reports` schema before writing the Phase 4 Alembic migration: one row per analyst stage (`technical`, `fundamental`, `news`, `bull`, `bear`, `risk`, `final`) with `role`, `stage`, `content_text`, `structured_json`, `prompt_version`, `model_provider`, `model_name`, `duration_ms`, and `is_degraded`. `analysis_runs` stores snapshot/checkpoint/run-level timing metadata; `signals` stores only the final trade signal and confidence.
+- [x] Write failing tests for hallucination validator.
+- [x] Implement validator for unsupported numbers and future event dates that cannot be sourced from `snapshot.news_items`, `snapshot.fundamentals`, or explicit event records.
+- [ ] Implement one retry path for degraded agent output.
+- [x] Define `agent_reports` schema before writing the Phase 4 Alembic migration: one row per analyst stage (`technical`, `fundamental`, `news`, `bull`, `bear`, `risk`, `final`) with `role`, `stage`, `content_text`, `structured_json`, `prompt_version`, `model_provider`, `model_name`, `duration_ms`, and `is_degraded`. `analysis_runs` stores snapshot/checkpoint/run-level timing metadata; `signals` stores only the final trade signal and confidence.
 - [ ] Add Phase 4 Alembic migration for data snapshot IDs, agent report storage, checkpoint pointer metadata, and prompt/model version fields introduced after Phase 3.
 - [ ] Make a checkpoint decision before starting Phase 4 implementation. Option A: enable upstream LangGraph `SqliteSaver`, set `checkpoint_enabled=True`, store sqlite path and thread ID as a pointer, and mark checkpoint complete only after a test confirms the pointer is written and readable. Option B: defer checkpoint pointer support to Phase 6, keep `checkpoint_enabled=False`, remove checkpoint verification claims from Phase 4, and add the task explicitly to Phase 6.
 - [ ] Add decision memory persistence.
