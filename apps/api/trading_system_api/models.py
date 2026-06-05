@@ -122,6 +122,8 @@ class AgentReport(Base):
     model_name: Mapped[str] = mapped_column(String(128), nullable=False)
     duration_ms: Mapped[int | None] = mapped_column(Integer)
     is_degraded: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    attempt_number: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    is_current: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 

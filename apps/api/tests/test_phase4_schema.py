@@ -30,6 +30,8 @@ def test_phase4_agent_reports_schema_boundary() -> None:
         "model_name",
         "duration_ms",
         "is_degraded",
+        "attempt_number",
+        "is_current",
         "created_at",
     ]:
         assert name in columns
@@ -38,6 +40,8 @@ def test_phase4_agent_reports_schema_boundary() -> None:
     assert columns["role"].type.length == 32
     assert columns["duration_ms"].nullable is True
     assert columns["is_degraded"].nullable is False
+    assert columns["attempt_number"].nullable is False
+    assert columns["is_current"].nullable is False
     assert _has_fk(columns["analysis_run_id"].foreign_keys, "analysis_runs.id")
     assert _has_check(AgentReport, "ck_agent_reports_role")
 
