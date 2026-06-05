@@ -205,8 +205,8 @@ Verification:
 
 Tasks:
 
-- [ ] Pin TradingAgents to a specific commit or version before importing its components.
-- [ ] Run dependency conflict checks with Kronos and TradingAgents enabled together.
+- [x] Pin TradingAgents to a specific commit or version before importing its components.
+- [x] Run dependency conflict checks with Kronos and TradingAgents enabled together.
 - [x] Inventory TradingAgents internal external-data tools before enabling workflow tests. At the pinned commit this must include `tradingagents/dataflows/interface.py`, `VENDOR_METHODS`, `route_to_vendor()`, and the direct yfinance paths in `tradingagents/graph/trading_graph.py`.
 - [x] Record the direct yfinance escape-path decision in `CONTRIBUTING.md`: `_fetch_returns()` is disabled or wrapped for Phase 4 agent runs, and `resolve_instrument_identity()` must use stored metadata or fail open without network by default.
 - [x] Verify that `resolve_instrument_identity()` at the pinned TradingAgents commit calls `yf.Ticker().info` network-first and is `lru_cache`-backed. Add a Phase 4B runtime helper that clears the cache, replaces the function itself with snapshot-backed metadata, and patches the imported `trading_graph` reference. Record the patch location and method in `CONTRIBUTING.md`.
@@ -218,21 +218,21 @@ Tasks:
 - [x] Write failing no-network tests that monkeypatch `yfinance.download` and `yfinance.Ticker` to raise immediately during agent workflow execution.
 - [x] Add HTTP-layer no-network tests with `pytest-httpx`, `respx`, or a native HTTPX transport guard, blocking external market-data hostnames such as `finance.yahoo.com`, `query1.finance.yahoo.com`, `twelvedata.com`, and `finnhub.io`. Split tests into unit tests with full network blocked and explicit integration tests where configured LLM endpoints may be allowed while market-data hosts remain blocked.
 - [x] Add Phase 4B escape-path guard helpers for TradingAgents runs: fresh per-run `data_cache_dir`/`results_dir` creation that fails closed when reused, plus a pending-entry resolution no-op guard so stale memory logs cannot trigger `_fetch_returns()` and yfinance before the platform owns realized-return backfill.
-- [ ] Integrate the Phase 4B escape-path guard helpers into the actual TradingAgents runner before constructing workflow tests.
+- [x] Integrate the Phase 4B escape-path guard helpers into the actual TradingAgents runner before constructing workflow tests.
 - [x] Ensure `vendor_bridge` snapshot context is reset in a `finally` block inside `_sync_run` so `ThreadPoolExecutor` thread reuse cannot carry a stale snapshot from one ticker analysis into the next. Prefer `contextvars.ContextVar` over `threading.local`. Add a test that runs two tickers sequentially on the same executor thread and asserts each gets only its own snapshot data.
 - [x] Write failing tests for provider config and Ollama base URL.
 - [x] Implement LLM provider adapter that emits TradingAgents' real config keys (`llm_provider`, `deep_think_llm`, `quick_think_llm`, `backend_url`) and scoped environment overrides for OpenAI and Ollama.
-- [ ] Write failing tests for agent data anchoring.
-- [ ] Implement snapshot-to-agent input adapter.
+- [x] Write failing tests for agent data anchoring.
+- [x] Implement snapshot-to-agent input adapter.
 - [x] Whitelist the permitted analyst combinations for V1. Only `["market", "news", "fundamentals"]` is allowed. The runner must reject unsupported analysts such as `social_media` or `insider` with a clear config error before constructing `TradingAgentsGraph`.
-- [ ] Make `max_debate_rounds` and `max_risk_discuss_rounds` configurable via settings. Remote models default to one round; Ollama/local small models default to two rounds. Document that single-round debate with small local models may increase degraded structured-output rates.
+- [x] Make `max_debate_rounds` and `max_risk_discuss_rounds` configurable via settings. Remote models default to one round; Ollama/local small models default to two rounds. Document that single-round debate with small local models may increase degraded structured-output rates.
 - [x] Write failing tests for split timeout/degraded behavior around synchronous TradingAgents graph execution and signal extraction. At the pinned commit, `SignalProcessor.process_signal()` is deterministic, but the runner still preserves `final_state` if extraction fails or times out.
 - [x] Add a split-timeout runner helper using `run_in_executor`: default graph timeout 240s, signal extraction timeout 30s, total timeout 280s.
-- [ ] Integrate the split-timeout helper into the actual TradingAgents runner with the Phase 4B runtime guards and LLM environment adapter.
-- [ ] Integrate or wrap TradingAgents analyst workflow only after the external-data inventory and wrappers are in place, so test runs cannot leak live yfinance/provider calls.
+- [x] Integrate the split-timeout helper into the actual TradingAgents runner with the Phase 4B runtime guards and LLM environment adapter.
+- [x] Integrate or wrap TradingAgents analyst workflow only after the external-data inventory and wrappers are in place, so test runs cannot leak live yfinance/provider calls.
 - [x] Write failing tests for hallucination validator.
 - [x] Implement validator for unsupported numbers and future event dates that cannot be sourced from `snapshot.news_items`, `snapshot.fundamentals`, or explicit event records.
-- [ ] Implement one retry path for degraded agent output.
+- [x] Implement one retry path for degraded agent output.
 - [x] Define `agent_reports` schema before writing the Phase 4 Alembic migration: one row per analyst stage (`technical`, `fundamental`, `news`, `bull`, `bear`, `risk`, `final`) with `role`, `stage`, `content_text`, `structured_json`, `prompt_version`, `model_provider`, `model_name`, `duration_ms`, and `is_degraded`. `analysis_runs` stores snapshot/checkpoint/run-level timing metadata; `signals` stores only the final trade signal and confidence.
 - [x] Add Phase 4 Alembic migration for data snapshot IDs, agent report storage, checkpoint pointer metadata, and prompt/model version fields introduced after Phase 3. This migration adds `analysis_runs.data_snapshot_id`, runtime duration/status columns, `agent_reports`, and `agent_checkpoint_pointers`; it does not modify `signals`, paper trading tables, email notification tables, or Phase 7 outcome backfill fields.
 - [x] Add Phase 4 retry-attempt migration for `agent_reports.attempt_number` and `agent_reports.is_current`. Retry attempts append rows instead of upserting; `stage` remains one of the canonical analyst stages and is not overloaded with attempt labels.
@@ -241,15 +241,15 @@ Tasks:
 - [x] Add checkpoint pointer helper and tests for write/read serialization, persistent checkpoint cache path, per-run memory-log isolation, and checkpoint initialization fallback.
 - [x] Add Phase 4 DB store helpers for analysis-run status transitions, output-adapter `AgentReport` row persistence, retry append semantics, and checkpoint pointer metadata persistence.
 - [x] Add decision memory persistence for V1: store prior lessons in the platform DB, expose `save_memory()` / `get_relevant_memories(ticker)`, and inject formatted lessons into the agent runner config as `decision_memory_context`. Do not synchronize upstream `trading_memory.md`; keep that file per-run isolated.
-- [ ] Call the Phase 4 DB store helpers from the live TradingAgents runner path once the pinned `TradingAgentsGraph` integration replaces the mock seam.
+- [x] Call the Phase 4 DB store helpers from the live TradingAgents runner path once the pinned `TradingAgentsGraph` integration replaces the mock seam.
 - [x] Verify TradingAgents `AgentState` keys at the pinned commit before writing the output adapter: `market_report`, `sentiment_report`, `news_report`, `fundamentals_report`, `investment_debate_state`, `investment_plan`, `trader_investment_plan`, `risk_debate_state`, and `final_trade_decision`.
 - [x] Add an output adapter that parses `final_state` directly into `AgentReport` rows without reading `_log_state()` JSON files. Missing/empty report fields degrade the corresponding row instead of raising `KeyError`; `structured_json` stores adapter-owned summaries rather than parsed LLM JSON.
 - [x] Integrate output adapter rows into the Phase 4 DB storage helper after the Phase 4 Alembic migration exists.
 - [x] Add a mock E2E TradingAgents runner seam that wires Phase 4B runtime dirs, persistent checkpoint cache, per-run memory log, LLM environment, executor-thread snapshot context, split timeouts, signal extraction, and output adapter reports together.
 - [x] Add E2E seam tests for the three runner junction risks: persistent checkpoint path must differ from per-run memory/results paths, `ContextVar` snapshot setup happens inside the executor thread, and mock `final_trade_decision` contains a parseable rating for deterministic signal extraction.
-- [ ] In the live `TradingAgentsGraph` integration, call actual `tradingagents.dataflows.config.set_config(config)` inside the worker before graph construction/execution and keep no-network workflow tests enabled.
-- [ ] Replace the mock graph step with the pinned `TradingAgentsGraph` construction after dependency checks and no-network workflow tests are in place.
-- [ ] Commit.
+- [x] In the live `TradingAgentsGraph` integration, call actual `tradingagents.dataflows.config.set_config(config)` inside the worker before graph construction/execution and keep no-network workflow tests enabled.
+- [x] Replace the mock graph step with the pinned `TradingAgentsGraph` construction after dependency checks and no-network workflow tests are in place.
+- [x] Commit.
 
 ## Phase 5: Scheduler, Worker, Freshness, Email, And Observability
 

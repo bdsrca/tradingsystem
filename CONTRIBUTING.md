@@ -40,11 +40,21 @@ The intended pinned upstream reference is:
 04f434e86db88e7707bf16db8ed7183f9764fe26
 ```
 
-Before Phase 4 implementation, run a dependency conflict check with Kronos,
-TradingAgents, LangGraph, LangChain, pandas, yfinance, FastAPI, and this
-repository's own dependencies enabled together. TradingAgents internal external
-data calls must be inventoried and wrapped or disabled before analyst workflow
-tests run.
+Phase 4 pins TradingAgents as a Git submodule at `vendor/TradingAgents` on
+commit `04f434e86db88e7707bf16db8ed7183f9764fe26`.
+
+Dependency conflict check result on 2026-06-05:
+
+```powershell
+python -m pip install --dry-run -r requirements-dev.txt -e vendor/TradingAgents
+```
+
+The first run failed only because `vendor/TradingAgents` was not present yet.
+After adding the pinned submodule, the dry-run exited with `PIP_STATUS=0` and
+`MATCH_COUNT=0` for `(conflict|ERROR|incompatible|error)`.
+
+TradingAgents internal external data calls must be inventoried and wrapped or
+disabled before analyst workflow tests run.
 
 At the pinned commit, TradingAgents exposes `VENDOR_METHODS` and
 `route_to_vendor()` in `tradingagents/dataflows/interface.py`. Phase 4 should

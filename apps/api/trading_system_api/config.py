@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     kronos_model_version: str = "67b630e67f6a18c9e9be918d9b4337c960db1e9a"
     kronos_sample_count: int = 3
     kronos_timeout_seconds: float = 60
+    agent_max_debate_rounds: int | None = None
+    agent_max_risk_discuss_rounds: int | None = None
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

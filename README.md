@@ -64,7 +64,7 @@ This project is reuse-first:
 
 ## Current Status
 
-The repository is in Phase 3 implementation:
+The repository is in Phase 4 implementation:
 
 - FastAPI service with health, watchlist CRUD, market-data read, and Twelve Data daily refresh endpoints.
 - Alembic schema for watchlist items, OHLCV bars, analysis runs, signals, paper trades, portfolio snapshots, and Kronos forecasts.
@@ -74,6 +74,10 @@ The repository is in Phase 3 implementation:
 - Append-only signal insertion for reproducible paper validation.
 - Kronos input preparation, batch-shape grouping, minimum-history checks, timeout fallback, and output adaptation.
 - Optional Kronos HTTP service wrapper that imports upstream Kronos from `KRONOS_SOURCE_PATH`.
+- TradingAgents pinned as `vendor/TradingAgents` at commit `04f434e86db88e7707bf16db8ed7183f9764fe26`.
+- TradingAgents live runner adapter with snapshot-anchored platform vendor routing, yfinance escape-path guards,
+  checkpoint pointer metadata, split timeout handling, output adaptation, decision memory injection, and hallucination
+  retry/store orchestration.
 - Next.js watchlist, stock detail candlestick, signal marker, Kronos forecast overlay, and paper validation pages.
 
 The deterministic baseline uses a pure pandas indicator implementation with pandas-ta-compatible column names. `pandas-ta` currently pulls a `numba` version that does not install under the local Python 3.14 environment, so the project avoids that runtime dependency until the package stack supports this interpreter cleanly.
@@ -81,12 +85,15 @@ The deterministic baseline uses a pure pandas indicator implementation with pand
 ## Local Quick Start
 
 1. Copy `.env.example` to `.env`.
-2. Create and activate a Python virtual environment.
-3. Install Python dependencies: `python -m pip install -r requirements-dev.txt`.
-4. Install Node dependencies: `npm install`.
-5. Run API tests: `npm run test:api`.
-6. Run web type checks: `npm run typecheck:web`.
-7. Apply database migrations from the repository root:
+2. Initialize submodules: `git submodule update --init --recursive`.
+3. Create and activate a Python virtual environment.
+4. Install Python dependencies: `python -m pip install -r requirements-dev.txt`.
+5. To run live TradingAgents analysis, also install the pinned upstream workflow:
+   `python -m pip install -e vendor/TradingAgents`.
+6. Install Node dependencies: `npm install`.
+7. Run API tests: `npm run test:api`.
+8. Run web type checks: `npm run typecheck:web`.
+9. Apply database migrations from the repository root:
 
 ```powershell
 $env:DATABASE_URL='sqlite+aiosqlite:///./trading_system.db'

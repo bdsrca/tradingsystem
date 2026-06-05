@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from urllib.parse import urlparse
 
 import httpx
@@ -25,6 +27,20 @@ class MarketDataNetworkBlocked(RuntimeError):
 def install_yfinance_block(yfinance_module) -> None:
     yfinance_module.download = _blocked_yfinance_call
     yfinance_module.Ticker = _blocked_yfinance_call
+
+
+@contextmanager
+def block_yfinance_network(yfinance_module) -> Iterator[None]:
+    original_download = getattr(yfinance_module, "download", None)
+    original_ticker = getattr(yfinance_module, "Ticker", None)
+    install_yfinance_block(yfinance_module)
+    try:
+        yield
+    finally:
+        if original_download is not None:
+            yfinance_module.download = original_download
+        if original_ticker is not None:
+            yfinance_module.Ticker = original_ticker
 
 
 def assert_market_data_url_allowed(url: str) -> None:
