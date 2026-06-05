@@ -8,6 +8,7 @@ from typing import Literal, TypeVar
 
 
 TickerStatus = Literal["succeeded", "failed", "skipped", "stale", "degraded"]
+DataFreshness = Literal["fresh", "stale_used", "no_data"]
 RunStatus = Literal["completed", "failed", "degraded"]
 
 
@@ -32,6 +33,7 @@ class DailyTickerResult:
     watchlist_item_id: str | None = None
     signal: str | None = None
     confidence: float | None = None
+    data_freshness: DataFreshness = "fresh"
     reason: str | None = None
     error_message: str | None = None
     started_at: datetime = field(default_factory=_utc_now)
@@ -150,6 +152,7 @@ class DailyWorker:
                     status=result.status,
                     signal=result.signal,
                     confidence=result.confidence,
+                    data_freshness=result.data_freshness,
                     reason=result.reason,
                     error_message=result.error_message,
                     started_at=result.started_at,
@@ -163,6 +166,7 @@ class DailyWorker:
                 market=item.market,
                 watchlist_item_id=item.watchlist_item_id,
                 status="failed",
+                data_freshness="no_data",
                 error_message=str(exc),
                 started_at=started_at,
                 finished_at=_utc_now(),

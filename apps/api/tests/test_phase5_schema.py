@@ -1,6 +1,11 @@
 from sqlalchemy import Boolean, DateTime, Integer, Numeric, Text
 
-from trading_system_api.models import DailyWorkerRun, DailyWorkerTickerResult, EmailNotification
+from trading_system_api.models import (
+    AppSetting,
+    DailyWorkerRun,
+    DailyWorkerTickerResult,
+    EmailNotification,
+)
 
 
 def test_phase5_daily_worker_run_schema_boundary() -> None:
@@ -40,6 +45,7 @@ def test_phase5_daily_worker_ticker_result_schema_boundary() -> None:
         "ticker",
         "exchange",
         "status",
+        "data_freshness",
         "signal",
         "confidence",
         "error_message",
@@ -52,6 +58,7 @@ def test_phase5_daily_worker_ticker_result_schema_boundary() -> None:
     assert columns["ticker"].nullable is False
     assert columns["exchange"].nullable is False
     assert columns["status"].nullable is False
+    assert columns["data_freshness"].nullable is False
     assert isinstance(columns["confidence"].type, Numeric)
     assert _has_fk(columns["worker_run_id"].foreign_keys, "daily_worker_runs.id")
 
@@ -91,6 +98,30 @@ def test_phase5_email_notification_defaults_to_not_digest_duplicate() -> None:
     assert "is_digest" in columns
     assert isinstance(columns["is_digest"].type, Boolean)
     assert columns["is_digest"].nullable is False
+
+
+def test_phase5_app_settings_reserve_scheduler_fields() -> None:
+    columns = AppSetting.__table__.columns
+
+    for name in [
+        "id",
+        "scheduler_enabled",
+        "scheduler_timezone",
+        "daily_trigger_hour",
+        "daily_trigger_minute",
+        "daily_kronos_enabled",
+        "daily_email_enabled",
+        "daily_email_recipient",
+        "email_debounce_days",
+        "updated_at",
+    ]:
+        assert name in columns
+
+    assert columns["scheduler_enabled"].nullable is False
+    assert columns["scheduler_timezone"].nullable is False
+    assert columns["daily_trigger_hour"].nullable is False
+    assert columns["daily_trigger_minute"].nullable is False
+    assert columns["daily_email_recipient"].nullable is True
 
 
 def _has_fk(foreign_keys, target: str) -> bool:

@@ -116,6 +116,7 @@ export default function DailyPage() {
                 <tr>
                   <th>Ticker</th>
                   <th>Status</th>
+                  <th>Data</th>
                   <th>Signal</th>
                   <th>Confidence</th>
                   <th>Error</th>
@@ -130,6 +131,11 @@ export default function DailyPage() {
                       </Link>
                     </td>
                     <td>{item.status}</td>
+                    <td>
+                      <span className={`freshness freshness-${item.data_freshness}`}>
+                        {freshnessLabel(item.data_freshness)}
+                      </span>
+                    </td>
                     <td>{item.signal ?? "-"}</td>
                     <td>{item.confidence === null ? "-" : item.confidence.toFixed(2)}</td>
                     <td>{item.error_message ?? "-"}</td>
@@ -144,4 +150,17 @@ export default function DailyPage() {
       )}
     </main>
   );
+}
+
+function freshnessLabel(value: string) {
+  if (value === "fresh") {
+    return "Fresh";
+  }
+  if (value === "stale_used") {
+    return "Stale cache";
+  }
+  if (value === "no_data") {
+    return "No data";
+  }
+  return value;
 }

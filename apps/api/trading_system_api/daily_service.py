@@ -21,7 +21,14 @@ from trading_system_api.models import (
 )
 from trading_system_data.symbols import SymbolIdentity
 from trading_system_data.twelve_data import TimeSeriesBar, TwelveDataClient
-from trading_system_email.digest import EmailDigest, EmailDigestItem, render_digest_text
+from trading_system_email.digest import (
+    EmailDebouncePolicy,
+    EmailDigest,
+    EmailDigestItem,
+    debounce_key,
+    render_digest_text,
+    should_send_signal_alert,
+)
 from trading_system_quant.baseline import generate_baseline_signal
 from trading_system_quant.signal_store import SignalCreate, append_signal
 from trading_system_worker.daily import (
@@ -83,6 +90,7 @@ async def run_daily_analysis(
                 exchange=item.exchange,
                 market=item.market,
                 status=item.status,
+                data_freshness=item.data_freshness,
                 signal=item.signal,
                 confidence=item.confidence,
                 error_message=item.error_message,
@@ -119,6 +127,7 @@ async def _analyze_ticker(
             market=item.market,
             watchlist_item_id=item.watchlist_item_id,
             status="stale",
+            data_freshness="no_data",
             error_message="TWELVE_DATA_API_KEY is not configured",
             started_at=started_at,
             finished_at=utc_now(),
@@ -145,6 +154,7 @@ async def _analyze_ticker(
             market=item.market,
             watchlist_item_id=item.watchlist_item_id,
             status="stale",
+            data_freshness="no_data",
             error_message=refresh_error,
             started_at=started_at,
             finished_at=utc_now(),
@@ -187,6 +197,7 @@ async def _analyze_ticker(
         market=item.market,
         watchlist_item_id=item.watchlist_item_id,
         status="degraded" if refresh_error else "succeeded",
+        data_freshness="stale_used" if refresh_error else "fresh",
         signal=signal.signal,
         confidence=float(signal.confidence or 0),
         reason=signal.reason,
@@ -282,6 +293,51 @@ async def _send_and_record_digest(
     if not recipient:
         return
 
+    eligible_items = []
+    sent_signal_keys: list[tuple[str, object]] = []
+    policy = EmailDebouncePolicy(window_days=settings.email_debounce_days)
+    now = utc_now()
+    for item in result.items:
+        if not item.signal:
+            eligible_items.append(item)
+            continue
+
+        key = debounce_key(item.ticker, item.exchange, item.signal)
+        last_sent_at = (
+            await session.execute(
+                select(EmailNotification.sent_at)
+                .where(
+                    EmailNotification.debounce_key == key,
+                    EmailNotification.status == "sent",
+                    EmailNotification.is_digest.is_(False),
+                )
+                .order_by(EmailNotification.sent_at.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if should_send_signal_alert(policy, last_sent_at=last_sent_at, now=now):
+            eligible_items.append(item)
+            sent_signal_keys.append((key, item))
+        else:
+            session.add(
+                EmailNotification(
+                    worker_run_id=run.id,
+                    ticker=item.ticker,
+                    exchange=item.exchange,
+                    signal=item.signal,
+                    recipient=recipient,
+                    subject=f"Suppressed {item.ticker}/{item.exchange} {item.signal}",
+                    body="Suppressed by email debounce window.",
+                    status="suppressed",
+                    debounce_key=key,
+                    is_digest=False,
+                )
+            )
+
+    if not eligible_items:
+        run.email_sent = False
+        return
+
     digest = EmailDigest(
         run_id=run.id,
         triggered_by=run.triggered_by,
@@ -302,7 +358,7 @@ async def _send_and_record_digest(
                 reason=item.reason,
                 error_message=item.error_message,
             )
-            for item in result.items
+            for item in eligible_items
         ],
     )
     subject = f"Trading System daily digest: {result.status}"
@@ -332,6 +388,22 @@ async def _send_and_record_digest(
         notification.status = "sent"
         notification.sent_at = utc_now()
         run.email_sent = True
+        for key, item in sent_signal_keys:
+            session.add(
+                EmailNotification(
+                    worker_run_id=run.id,
+                    ticker=item.ticker,
+                    exchange=item.exchange,
+                    signal=item.signal,
+                    recipient=recipient,
+                    subject=f"{item.ticker}/{item.exchange} {item.signal}",
+                    body=item.reason or body,
+                    status="sent",
+                    debounce_key=key,
+                    is_digest=False,
+                    sent_at=notification.sent_at,
+                )
+            )
 
 
 async def send_digest_email(

@@ -20,6 +20,7 @@ def test_phase5_alembic_upgrade_creates_daily_worker_and_email_tables(
     assert "daily_worker_runs" in inspector.get_table_names()
     assert "daily_worker_ticker_results" in inspector.get_table_names()
     assert "email_notifications" in inspector.get_table_names()
+    assert "app_settings" in inspector.get_table_names()
 
     run_columns = {column["name"]: column for column in inspector.get_columns("daily_worker_runs")}
     assert run_columns["triggered_by"]["nullable"] is False
@@ -34,6 +35,7 @@ def test_phase5_alembic_upgrade_creates_daily_worker_and_email_tables(
     assert result_columns["ticker"]["nullable"] is False
     assert result_columns["exchange"]["nullable"] is False
     assert result_columns["status"]["nullable"] is False
+    assert result_columns["data_freshness"]["nullable"] is False
 
     notification_columns = {
         column["name"]: column for column in inspector.get_columns("email_notifications")
@@ -43,6 +45,13 @@ def test_phase5_alembic_upgrade_creates_daily_worker_and_email_tables(
     assert notification_columns["body"]["nullable"] is False
     assert notification_columns["status"]["nullable"] is False
     assert notification_columns["is_digest"]["nullable"] is False
+
+    settings_columns = {column["name"]: column for column in inspector.get_columns("app_settings")}
+    assert settings_columns["scheduler_enabled"]["nullable"] is False
+    assert settings_columns["scheduler_timezone"]["nullable"] is False
+    assert settings_columns["daily_trigger_hour"]["nullable"] is False
+    assert settings_columns["daily_trigger_minute"]["nullable"] is False
+    assert settings_columns["daily_email_recipient"]["nullable"] is True
 
     run_checks = {
         constraint["name"] for constraint in inspector.get_check_constraints("daily_worker_runs")
@@ -57,6 +66,7 @@ def test_phase5_alembic_upgrade_creates_daily_worker_and_email_tables(
     assert "ck_daily_worker_runs_triggered_by" in run_checks
     assert "ck_daily_worker_runs_status" in run_checks
     assert "ck_daily_worker_ticker_results_status" in result_checks
+    assert "ck_daily_worker_ticker_results_data_freshness" in result_checks
     assert "ck_email_notifications_status" in notification_checks
 
 

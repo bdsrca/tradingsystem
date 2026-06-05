@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 @dataclass(frozen=True)
@@ -46,6 +46,10 @@ def should_send_signal_alert(
 ) -> bool:
     if last_sent_at is None:
         return True
+    if last_sent_at.tzinfo is None:
+        last_sent_at = last_sent_at.replace(tzinfo=timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
     return (now - last_sent_at).days >= policy.window_days
 
 

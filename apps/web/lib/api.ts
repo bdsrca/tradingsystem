@@ -89,6 +89,7 @@ export type DailyTickerResult = {
   exchange: string;
   market: string | null;
   status: string;
+  data_freshness: string;
   signal: string | null;
   confidence: number | null;
   error_message: string | null;

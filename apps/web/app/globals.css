@@ -190,6 +190,29 @@ td a {
   text-decoration: none;
 }
 
+.freshness {
+  border-radius: 999px;
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 8px;
+}
+
+.freshness-fresh {
+  background: #e7f6ef;
+  color: #1f7a5c;
+}
+
+.freshness-stale_used {
+  background: #fff4d8;
+  color: #8a5a00;
+}
+
+.freshness-no_data {
+  background: #fde8e4;
+  color: #b42318;
+}
+
 .chart-section {
   margin-top: 24px;
 }

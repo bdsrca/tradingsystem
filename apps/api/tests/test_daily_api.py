@@ -79,6 +79,7 @@ async def test_daily_run_refreshes_data_creates_signal_and_persists_summary(
         assert body["succeeded_count"] == 1
         assert body["items"][0]["ticker"] == "NTSK"
         assert body["items"][0]["status"] == "succeeded"
+        assert body["items"][0]["data_freshness"] == "fresh"
 
         latest = await client.get("/daily/latest")
         assert latest.status_code == 200
@@ -191,6 +192,7 @@ async def test_daily_run_degrades_to_existing_bars_when_refresh_fails(
     assert body["degraded_count"] == 1
     assert body["failed_count"] == 0
     assert body["items"][0]["status"] == "degraded"
+    assert body["items"][0]["data_freshness"] == "stale_used"
     assert body["items"][0]["signal"] in {"BUY", "WATCH", "HOLD", "REDUCE", "SELL"}
     assert "used existing bars" in body["items"][0]["error_message"]
 
@@ -264,7 +266,79 @@ async def test_daily_run_sends_digest_email_when_enabled(
     async with session_factory() as session:
         notifications = (await session.execute(select(EmailNotification))).scalars().all()
 
-    assert len(notifications) == 1
-    assert notifications[0].status == "sent"
-    assert notifications[0].is_digest is True
-    assert notifications[0].recipient == "me@example.com"
+    assert any(item.status == "sent" and item.is_digest for item in notifications)
+    assert any(item.status == "sent" and not item.is_digest for item in notifications)
+    assert all(item.recipient == "me@example.com" for item in notifications)
+
+
+@pytest.mark.asyncio
+async def test_daily_email_debounce_applies_to_manual_reruns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+
+    async with session_factory() as session:
+        session.add(
+            WatchlistItem(
+                ticker="NTSK",
+                exchange="NASDAQ",
+                market="US",
+                provider_symbol="NTSK",
+                enabled=True,
+                tags=[],
+            )
+        )
+        await session.commit()
+
+    sent: list[dict[str, str]] = []
+
+    class FakeTwelveDataClient:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        async def fetch_daily_bars(self, identity, *, outputsize: int = 500):
+            return _fake_bars(identity.ticker, outputsize=70)
+
+    async def fake_send_digest_email(*, recipient: str, subject: str, body: str, settings):
+        sent.append({"recipient": recipient, "subject": subject, "body": body})
+
+    async def override_session():
+        async with session_factory() as session:
+            yield session
+
+    monkeypatch.setenv("TWELVE_DATA_API_KEY", "test-key")
+    monkeypatch.setenv("DAILY_EMAIL_ENABLED", "true")
+    monkeypatch.setenv("DAILY_EMAIL_RECIPIENT", "me@example.com")
+    monkeypatch.setenv("EMAIL_DEBOUNCE_DAYS", "7")
+    get_settings.cache_clear()
+    monkeypatch.setattr(
+        "trading_system_api.daily_service.TwelveDataClient",
+        FakeTwelveDataClient,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "trading_system_api.daily_service.send_digest_email",
+        fake_send_digest_email,
+        raising=False,
+    )
+
+    app = create_app()
+    app.dependency_overrides[get_session] = override_session
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        first = await client.post("/daily/run")
+        second = await client.post("/daily/run")
+
+    assert first.json()["email_sent"] is True
+    assert second.json()["email_sent"] is False
+    assert len(sent) == 1
+
+    async with session_factory() as session:
+        notifications = (await session.execute(select(EmailNotification))).scalars().all()
+
+    assert any(item.status == "sent" and not item.is_digest for item in notifications)
+    assert any(item.status == "suppressed" and not item.is_digest for item in notifications)

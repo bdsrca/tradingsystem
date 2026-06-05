@@ -218,6 +218,10 @@ class DailyWorkerTickerResult(Base):
             "status IN ('succeeded', 'failed', 'skipped', 'stale', 'degraded')",
             name="ck_daily_worker_ticker_results_status",
         ),
+        CheckConstraint(
+            "data_freshness IN ('fresh', 'stale_used', 'no_data')",
+            name="ck_daily_worker_ticker_results_data_freshness",
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
@@ -230,6 +234,7 @@ class DailyWorkerTickerResult(Base):
     exchange: Mapped[str] = mapped_column(String(32), nullable=False)
     market: Mapped[str | None] = mapped_column(String(8))
     status: Mapped[str] = mapped_column(String(32), nullable=False)
+    data_freshness: Mapped[str] = mapped_column(String(16), default="fresh", nullable=False)
     signal: Mapped[str | None] = mapped_column(String(16))
     confidence: Mapped[float | None] = mapped_column(Numeric(6, 4))
     error_message: Mapped[str | None] = mapped_column(Text)
@@ -261,6 +266,25 @@ class EmailNotification(Base):
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     error_message: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class AppSetting(Base):
+    __tablename__ = "app_settings"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
+    scheduler_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    scheduler_timezone: Mapped[str] = mapped_column(
+        String(64),
+        default="America/Toronto",
+        nullable=False,
+    )
+    daily_trigger_hour: Mapped[int] = mapped_column(Integer, default=17, nullable=False)
+    daily_trigger_minute: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    daily_kronos_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    daily_email_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    daily_email_recipient: Mapped[str | None] = mapped_column(String(255))
+    email_debounce_days: Mapped[int] = mapped_column(Integer, default=7, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
 class PaperSimulationRun(Base):

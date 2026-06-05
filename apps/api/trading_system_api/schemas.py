@@ -145,6 +145,7 @@ class DailyTickerResultRead(BaseModel):
     exchange: str
     market: str | None
     status: str
+    data_freshness: str
     signal: str | None
     confidence: float | None
     error_message: str | None
