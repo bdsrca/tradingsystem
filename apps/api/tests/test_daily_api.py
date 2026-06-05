@@ -121,6 +121,69 @@ def _fake_bars(ticker: str, *, outputsize: int) -> list[TimeSeriesBar]:
 
 
 @pytest.mark.asyncio
+async def test_daily_run_retries_refresh_before_using_cached_freshness(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+
+    async with session_factory() as session:
+        session.add(
+            WatchlistItem(
+                ticker="NTSK",
+                exchange="NASDAQ",
+                market="US",
+                provider_symbol="NTSK",
+                enabled=True,
+                tags=[],
+            )
+        )
+        await session.commit()
+
+    class FlakyTwelveDataClient:
+        attempts = 0
+
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        async def fetch_daily_bars(self, identity, *, outputsize: int = 500):
+            FlakyTwelveDataClient.attempts += 1
+            if FlakyTwelveDataClient.attempts == 1:
+                raise RuntimeError("temporary upstream error")
+            return _fake_bars(identity.ticker, outputsize=70)
+
+    async def override_session():
+        async with session_factory() as session:
+            yield session
+
+    monkeypatch.setenv("TWELVE_DATA_API_KEY", "test-key")
+    monkeypatch.setenv("DAILY_EMAIL_ENABLED", "false")
+    get_settings.cache_clear()
+    monkeypatch.setattr(
+        "trading_system_api.daily_service.TwelveDataClient",
+        FlakyTwelveDataClient,
+        raising=False,
+    )
+
+    app = create_app()
+    app.dependency_overrides[get_session] = override_session
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        created = await client.post("/daily/run")
+
+    body = created.json()
+    assert created.status_code == 201
+    assert FlakyTwelveDataClient.attempts == 2
+    assert body["status"] == "completed"
+    assert body["items"][0]["status"] == "succeeded"
+    assert body["items"][0]["data_freshness"] == "fresh"
+    assert body["items"][0]["error_message"] is None
+
+
+@pytest.mark.asyncio
 async def test_daily_run_degrades_to_existing_bars_when_refresh_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -271,23 +271,23 @@ Verification:
 - Manual trigger and scheduled trigger call the same analysis function.
 - Duplicate ticker run returns 409 or skips when locked.
 - Lock tests prove a slow Kronos/LLM run does not hold a long open database transaction.
-- Delayed bar retry logic marks stale-data-delayed after retries.
+- Delayed bar retry logic marks `fresh`, `stale_used`, or `no_data` after retry/cached-data checks.
 - Repeated same-direction alert is suppressed within debounce window.
 - Daily digest shows succeeded, failed, skipped, stale, and degraded counts.
 
 Tasks:
 
-- [ ] Write failing tests for scheduler timezone config.
-- [ ] Implement scheduler config.
-- [ ] Write failing tests for analysis lock conflict.
-- [ ] Implement the V1 default lock strategy with an in-process `asyncio.Lock` keyed by `ticker::market`, plus persisted `analysis_runs` status checks for recovery visibility. Avoid wrapping the full Kronos/LLM analysis in one long `pg_advisory_xact_lock` transaction.
-- [ ] Document lock key derivation if Postgres advisory locks are used, such as `hashtext(ticker || '::' || market)`, and document why the lock does or does not span the full run.
-- [ ] Write failing tests for provider freshness retry.
-- [ ] Implement freshness retry.
-- [ ] Add a Phase 5 Alembic migration for scheduler/worker/email fields introduced after Phase 1 and Phase 2, including email debounce metadata, worker run summaries, freshness/degraded status fields, and any persisted job lease/status fields. Do not assume Phase 1 created these operational fields.
-- [ ] Write failing tests for email debounce.
-- [ ] Implement email aggregation and debounce.
-- [ ] Add structured worker logs and daily summary.
+- [x] Write failing tests for scheduler timezone config.
+- [x] Implement scheduler config.
+- [x] Write failing tests for analysis lock conflict.
+- [x] Implement the V1 default lock strategy with an in-process `asyncio.Lock` keyed by `ticker::market`, plus persisted `analysis_runs` status checks for recovery visibility. Avoid wrapping the full Kronos/LLM analysis in one long `pg_advisory_xact_lock` transaction.
+- [x] Document lock key derivation if Postgres advisory locks are used, such as `hashtext(ticker || '::' || market)`, and document why the lock does or does not span the full run. V1 uses in-process locks, not Postgres advisory locks.
+- [x] Write failing tests for provider freshness retry.
+- [x] Implement freshness retry.
+- [x] Add a Phase 5 Alembic migration for scheduler/worker/email fields introduced after Phase 1 and Phase 2, including email debounce metadata, worker run summaries, freshness/degraded status fields, and any persisted job lease/status fields. Do not assume Phase 1 created these operational fields.
+- [x] Write failing tests for email debounce.
+- [x] Implement email aggregation and debounce.
+- [x] Add structured worker logs and daily summary.
 - [ ] Commit.
 
 ## Phase 6: Local Hardening And Cloud-Ready Packaging

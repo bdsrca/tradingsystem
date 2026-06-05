@@ -1,7 +1,6 @@
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
 
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -9,22 +8,15 @@ from trading_system_api.config import get_settings
 from trading_system_api.daily_service import run_daily_analysis
 from trading_system_api.database import SessionLocal
 from trading_system_api.routers import analysis, daily, kronos, market_data, paper, signals, watchlist
+from trading_system_api.scheduler import build_daily_scheduler
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
-    scheduler: AsyncIOScheduler | None = None
+    scheduler = None
     if settings.scheduler_enabled:
-        scheduler = AsyncIOScheduler(timezone=settings.scheduler_timezone)
-        scheduler.add_job(
-            _scheduled_daily_job,
-            "cron",
-            hour=settings.daily_trigger_hour,
-            minute=settings.daily_trigger_minute,
-            id="daily-post-close-analysis",
-            replace_existing=True,
-        )
+        scheduler = build_daily_scheduler(settings, _scheduled_daily_job)
         scheduler.start()
         app.state.scheduler = scheduler
     try:

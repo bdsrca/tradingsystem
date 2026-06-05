@@ -79,7 +79,7 @@ async def run_daily_analysis(
         analyze_ticker=analyze_ticker,
         lock_registry=_LOCK_REGISTRY,
     )
-    result = await worker.run_once(triggered_by=triggered_by)
+    result = await worker.run_once(triggered_by=triggered_by, worker_run_id=str(run.id))
 
     for item in result.items:
         session.add(
@@ -134,12 +134,10 @@ async def _analyze_ticker(
         )
 
     identity = SymbolIdentity(ticker=item.ticker, exchange=item.exchange, market=item.market)
-    refresh_error: str | None = None
-    try:
-        bars = await TwelveDataClient(settings.twelve_data_api_key).fetch_daily_bars(identity)
-    except Exception as exc:
-        bars = []
-        refresh_error = str(exc)
+    bars, refresh_error = await _fetch_daily_bars_with_retry(
+        TwelveDataClient(settings.twelve_data_api_key),
+        identity,
+    )
 
     if bars:
         await _upsert_bars(session, identity, bars)
@@ -207,6 +205,21 @@ async def _analyze_ticker(
         started_at=started_at,
         finished_at=utc_now(),
     )
+
+
+async def _fetch_daily_bars_with_retry(
+    client: TwelveDataClient,
+    identity: SymbolIdentity,
+    *,
+    max_attempts: int = 2,
+) -> tuple[list[TimeSeriesBar], str | None]:
+    last_error: str | None = None
+    for _ in range(max_attempts):
+        try:
+            return await client.fetch_daily_bars(identity), None
+        except Exception as exc:
+            last_error = str(exc)
+    return [], last_error
 
 
 async def _upsert_bars(

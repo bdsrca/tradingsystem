@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import inspect
+import json
+import logging
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -10,6 +12,7 @@ from typing import Literal, TypeVar
 TickerStatus = Literal["succeeded", "failed", "skipped", "stale", "degraded"]
 DataFreshness = Literal["fresh", "stale_used", "no_data"]
 RunStatus = Literal["completed", "failed", "degraded"]
+_LOGGER = logging.getLogger(__name__)
 
 
 def _utc_now() -> datetime:
@@ -107,28 +110,59 @@ class DailyWorker:
         self._analyze_ticker = analyze_ticker
         self._lock_registry = lock_registry or DailyWorkerLockRegistry()
 
-    async def run_once(self, *, triggered_by: str) -> DailyRunResult:
+    async def run_once(
+        self,
+        *,
+        triggered_by: str,
+        worker_run_id: str | None = None,
+    ) -> DailyRunResult:
         started_at = _utc_now()
         tickers = list(await _maybe_await(self._list_tickers()))
+        _log_event(
+            "daily_worker_started",
+            worker_run_id=worker_run_id,
+            triggered_by=triggered_by,
+            ticker_count=len(tickers),
+            started_at=started_at.isoformat(),
+        )
         items: list[DailyTickerResult] = []
 
         for item in tickers:
-            items.append(await self._run_ticker(item))
+            items.append(await self._run_ticker(item, worker_run_id=worker_run_id))
 
         finished_at = _utc_now()
-        return DailyRunResult(
+        result = DailyRunResult(
             triggered_by=triggered_by,
             status=_run_status(items),
             started_at=started_at,
             finished_at=finished_at,
             items=items,
         )
+        _log_event(
+            "daily_worker_finished",
+            worker_run_id=worker_run_id,
+            triggered_by=triggered_by,
+            status=result.status,
+            succeeded_count=result.succeeded_count,
+            failed_count=result.failed_count,
+            skipped_count=result.skipped_count,
+            stale_count=result.stale_count,
+            degraded_count=result.degraded_count,
+            duration_ms=_duration_ms(started_at, finished_at),
+            finished_at=finished_at.isoformat(),
+        )
+        return result
 
-    async def _run_ticker(self, item: DailyTickerInput) -> DailyTickerResult:
+    async def _run_ticker(
+        self,
+        item: DailyTickerInput,
+        *,
+        worker_run_id: str | None = None,
+    ) -> DailyTickerResult:
         lock = self._lock_registry.get(item.ticker, item.exchange)
         if lock.locked():
             now = _utc_now()
-            return DailyTickerResult(
+            result = DailyTickerResult(
                 ticker=item.ticker,
                 exchange=item.exchange,
                 market=item.market,
@@ -138,9 +172,12 @@ class DailyWorker:
                 started_at=now,
                 finished_at=now,
             )
+            _log_ticker_finished(result, worker_run_id=worker_run_id)
+            return result
 
         await lock.acquire()
         started_at = _utc_now()
+        result: DailyTickerResult | None = None
         try:
             result = await self._analyze_ticker(item)
             if result.finished_at is None:
@@ -160,7 +197,7 @@ class DailyWorker:
                 )
             return result
         except Exception as exc:
-            return DailyTickerResult(
+            result = DailyTickerResult(
                 ticker=item.ticker,
                 exchange=item.exchange,
                 market=item.market,
@@ -171,7 +208,10 @@ class DailyWorker:
                 started_at=started_at,
                 finished_at=_utc_now(),
             )
+            return result
         finally:
+            if result is not None:
+                _log_ticker_finished(result, worker_run_id=worker_run_id)
             lock.release()
 
 
@@ -212,3 +252,36 @@ def _run_status(items: Sequence[DailyTickerResult]) -> RunStatus:
 
 def _lock_key(ticker: str, exchange: str) -> str:
     return f"{ticker.strip().upper()}::{exchange.strip().upper()}"
+
+
+def _log_ticker_finished(
+    result: DailyTickerResult,
+    *,
+    worker_run_id: str | None,
+) -> None:
+    finished_at = result.finished_at or _utc_now()
+    _log_event(
+        "daily_ticker_finished",
+        worker_run_id=worker_run_id,
+        ticker=result.ticker,
+        exchange=result.exchange,
+        market=result.market,
+        watchlist_item_id=str(result.watchlist_item_id) if result.watchlist_item_id else None,
+        status=result.status,
+        data_freshness=result.data_freshness,
+        signal=result.signal,
+        confidence=result.confidence,
+        error_message=result.error_message,
+        duration_ms=_duration_ms(result.started_at, finished_at),
+        finished_at=finished_at.isoformat(),
+    )
+
+
+def _log_event(event: str, **fields: object) -> None:
+    payload = {"event": event}
+    payload.update({key: value for key, value in fields.items() if value is not None})
+    _LOGGER.info(json.dumps(payload, sort_keys=True))
+
+
+def _duration_ms(started_at: datetime, finished_at: datetime) -> int:
+    return max(0, round((finished_at - started_at).total_seconds() * 1000))
