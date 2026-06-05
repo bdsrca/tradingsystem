@@ -367,6 +367,59 @@ td a {
   margin: 0 0 14px;
 }
 
+.admin-section {
+  margin-top: 24px;
+}
+
+.admin-section h2 {
+  font-size: 16px;
+  margin: 0 0 14px;
+}
+
+.settings-grid {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 18px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.field input,
+.field select {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+  min-width: 0;
+  padding: 9px 10px;
+}
+
+.checkbox-field {
+  align-content: end;
+  grid-template-columns: auto 1fr;
+}
+
+.checkbox-field input {
+  height: 18px;
+  width: 18px;
+}
+
+.readonly-field strong {
+  font-size: 14px;
+}
+
 .metric-grid {
   display: grid;
   gap: 10px;
@@ -445,6 +498,10 @@ td a {
   }
 
   .paper-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-grid {
     grid-template-columns: 1fr;
   }
 }

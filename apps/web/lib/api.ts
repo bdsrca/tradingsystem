@@ -172,6 +172,44 @@ export type PaperOverview = {
   }>;
 };
 
+export type AdminSettings = {
+  provider_preference: string;
+  llm_provider_type: string;
+  llm_base_url: string | null;
+  llm_model_name: string | null;
+  tradingagents_enabled: boolean;
+  max_debate_rounds: number;
+  max_risk_discuss_rounds: number;
+  smtp_host: string | null;
+  smtp_port: number;
+  smtp_user: string | null;
+  smtp_from: string | null;
+  smtp_to: string | null;
+  daily_digest_enabled: boolean;
+  strong_signal_alert_threshold: number;
+  scheduler_enabled: boolean;
+  daily_trigger_hour: number;
+  daily_trigger_minute: number;
+  scheduler_timezone: string;
+  kronos_enabled: boolean;
+  email_debounce_days: number;
+  secrets: {
+    twelve_data_api_key: string;
+    remote_llm_api_key: string;
+    smtp_password: string;
+  };
+};
+
+export type AdminHealth = {
+  services: Array<{
+    service_name: string;
+    status: string;
+    checked_at: string;
+    latency_ms: number | null;
+    details_json: Record<string, unknown>;
+  }>;
+};
+
 export type DailyTickerResult = {
   id: string;
   ticker: string;

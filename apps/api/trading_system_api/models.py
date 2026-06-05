@@ -300,6 +300,22 @@ class AppSetting(Base):
     __tablename__ = "app_settings"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
+    provider_preference: Mapped[str] = mapped_column(String(32), default="twelve_data", nullable=False)
+    llm_provider_type: Mapped[str] = mapped_column(String(32), default="ollama", nullable=False)
+    llm_base_url: Mapped[str | None] = mapped_column(String(255))
+    llm_model_name: Mapped[str | None] = mapped_column(String(128))
+    tradingagents_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    max_debate_rounds: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    max_risk_discuss_rounds: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    smtp_host: Mapped[str | None] = mapped_column(String(255))
+    smtp_port: Mapped[int] = mapped_column(Integer, default=587, nullable=False)
+    smtp_user: Mapped[str | None] = mapped_column(String(255))
+    smtp_from: Mapped[str | None] = mapped_column(String(255))
+    strong_signal_alert_threshold: Mapped[float] = mapped_column(
+        Numeric(5, 4),
+        default=0.7,
+        nullable=False,
+    )
     scheduler_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     scheduler_timezone: Mapped[str] = mapped_column(
         String(64),
@@ -313,6 +329,28 @@ class AppSetting(Base):
     daily_email_recipient: Mapped[str | None] = mapped_column(String(255))
     email_debounce_days: Mapped[int] = mapped_column(Integer, default=7, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class ServiceHealthCheck(Base):
+    __tablename__ = "service_health_checks"
+    __table_args__ = (
+        UniqueConstraint("service_name", name="uq_service_health_checks_service_name"),
+        CheckConstraint(
+            "service_name IN ('api', 'db', 'kronos', 'email', 'data_provider')",
+            name="ck_service_health_checks_service_name",
+        ),
+        CheckConstraint(
+            "status IN ('ok', 'degraded', 'unreachable')",
+            name="ck_service_health_checks_status",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
+    service_name: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    latency_ms: Mapped[int | None] = mapped_column(Integer)
+    details_json: Mapped[dict] = mapped_column(JSON, default=dict)
 
 
 class PaperSimulationRun(Base):

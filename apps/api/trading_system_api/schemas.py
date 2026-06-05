@@ -160,6 +160,73 @@ class DashboardSummaryRead(BaseModel):
     cache_hit: bool
 
 
+class AdminSecretsRead(BaseModel):
+    twelve_data_api_key: str
+    remote_llm_api_key: str
+    smtp_password: str
+
+
+class AdminSettingsRead(BaseModel):
+    provider_preference: str
+    llm_provider_type: str
+    llm_base_url: str | None
+    llm_model_name: str | None
+    tradingagents_enabled: bool
+    max_debate_rounds: int
+    max_risk_discuss_rounds: int
+    smtp_host: str | None
+    smtp_port: int
+    smtp_user: str | None
+    smtp_from: str | None
+    smtp_to: str | None
+    daily_digest_enabled: bool
+    strong_signal_alert_threshold: float
+    scheduler_enabled: bool
+    daily_trigger_hour: int
+    daily_trigger_minute: int
+    scheduler_timezone: str
+    kronos_enabled: bool
+    email_debounce_days: int
+    secrets: AdminSecretsRead
+
+
+class AdminSettingsUpdate(BaseModel):
+    provider_preference: str | None = None
+    llm_provider_type: str | None = None
+    llm_base_url: str | None = None
+    llm_model_name: str | None = None
+    tradingagents_enabled: bool | None = None
+    max_debate_rounds: int | None = None
+    max_risk_discuss_rounds: int | None = None
+    smtp_host: str | None = None
+    smtp_port: int | None = None
+    smtp_user: str | None = None
+    smtp_from: str | None = None
+    smtp_to: str | None = None
+    daily_digest_enabled: bool | None = None
+    strong_signal_alert_threshold: float | None = None
+    scheduler_enabled: bool | None = None
+    daily_trigger_hour: int | None = None
+    daily_trigger_minute: int | None = None
+    scheduler_timezone: str | None = None
+    kronos_enabled: bool | None = None
+    email_debounce_days: int | None = None
+
+    model_config = {"extra": "forbid"}
+
+
+class ServiceHealthRead(BaseModel):
+    service_name: str
+    status: str
+    checked_at: datetime
+    latency_ms: int | None
+    details_json: dict
+
+
+class AdminHealthRead(BaseModel):
+    services: list[ServiceHealthRead]
+
+
 class PaperMetricsRead(BaseModel):
     total_return_pct: float
     max_drawdown_pct: float

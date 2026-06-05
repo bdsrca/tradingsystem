@@ -9,6 +9,7 @@ from trading_system_api.config import get_settings
 from trading_system_api.daily_service import run_daily_analysis
 from trading_system_api.database import SessionLocal
 from trading_system_api.routers import (
+    admin,
     analysis,
     daily,
     dashboard,
@@ -59,6 +60,7 @@ def create_app() -> FastAPI:
 
     app.include_router(watchlist.router)
     app.include_router(market_data.router)
+    app.include_router(admin.router)
     app.include_router(analysis.router)
     app.include_router(signals.router)
     app.include_router(dashboard.router)
