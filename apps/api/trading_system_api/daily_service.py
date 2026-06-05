@@ -1,0 +1,252 @@
+from __future__ import annotations
+
+from datetime import datetime, timezone
+
+import pandas as pd
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from trading_system_api.config import Settings
+from trading_system_api.models import (
+    AnalysisRun,
+    DailyWorkerRun,
+    DailyWorkerTickerResult,
+    MarketDataBar,
+    WatchlistItem,
+    utc_now,
+)
+from trading_system_data.symbols import SymbolIdentity
+from trading_system_data.twelve_data import TimeSeriesBar, TwelveDataClient
+from trading_system_quant.baseline import generate_baseline_signal
+from trading_system_quant.signal_store import SignalCreate, append_signal
+from trading_system_worker.daily import (
+    DailyTickerInput,
+    DailyTickerResult,
+    DailyWorker,
+    DailyWorkerLockRegistry,
+)
+
+
+_LOCK_REGISTRY = DailyWorkerLockRegistry()
+
+
+async def run_daily_analysis(
+    session: AsyncSession,
+    settings: Settings,
+    *,
+    triggered_by: str = "manual",
+) -> DailyWorkerRun:
+    run = DailyWorkerRun(triggered_by=triggered_by, status="running", started_at=utc_now())
+    session.add(run)
+    await session.commit()
+    await session.refresh(run)
+
+    async def list_tickers() -> list[DailyTickerInput]:
+        rows = (
+            await session.execute(
+                select(WatchlistItem)
+                .where(WatchlistItem.enabled.is_(True))
+                .order_by(WatchlistItem.created_at.asc())
+            )
+        ).scalars().all()
+        return [
+            DailyTickerInput(
+                ticker=row.ticker,
+                exchange=row.exchange,
+                market=row.market,
+                watchlist_item_id=row.id,
+            )
+            for row in rows
+        ]
+
+    async def analyze_ticker(item: DailyTickerInput) -> DailyTickerResult:
+        return await _analyze_ticker(session, settings, item)
+
+    worker = DailyWorker(
+        list_tickers=list_tickers,
+        analyze_ticker=analyze_ticker,
+        lock_registry=_LOCK_REGISTRY,
+    )
+    result = await worker.run_once(triggered_by=triggered_by)
+
+    for item in result.items:
+        session.add(
+            DailyWorkerTickerResult(
+                worker_run_id=run.id,
+                watchlist_item_id=item.watchlist_item_id,
+                ticker=item.ticker,
+                exchange=item.exchange,
+                market=item.market,
+                status=item.status,
+                signal=item.signal,
+                confidence=item.confidence,
+                error_message=item.error_message,
+                started_at=item.started_at,
+                finished_at=item.finished_at,
+            )
+        )
+
+    run.status = result.status
+    run.finished_at = result.finished_at
+    run.succeeded_count = result.succeeded_count
+    run.failed_count = result.failed_count
+    run.skipped_count = result.skipped_count
+    run.stale_count = result.stale_count
+    run.degraded_count = result.degraded_count
+    run.summary = result.summary()
+    await session.commit()
+    await session.refresh(run)
+    return run
+
+
+async def _analyze_ticker(
+    session: AsyncSession,
+    settings: Settings,
+    item: DailyTickerInput,
+) -> DailyTickerResult:
+    started_at = utc_now()
+    if not settings.twelve_data_api_key:
+        return DailyTickerResult(
+            ticker=item.ticker,
+            exchange=item.exchange,
+            market=item.market,
+            watchlist_item_id=item.watchlist_item_id,
+            status="stale",
+            error_message="TWELVE_DATA_API_KEY is not configured",
+            started_at=started_at,
+            finished_at=utc_now(),
+        )
+
+    identity = SymbolIdentity(ticker=item.ticker, exchange=item.exchange, market=item.market)
+    bars = await TwelveDataClient(settings.twelve_data_api_key).fetch_daily_bars(identity)
+    if not bars:
+        return DailyTickerResult(
+            ticker=item.ticker,
+            exchange=item.exchange,
+            market=item.market,
+            watchlist_item_id=item.watchlist_item_id,
+            status="stale",
+            error_message="No OHLCV bars returned",
+            started_at=started_at,
+            finished_at=utc_now(),
+        )
+
+    await _upsert_bars(session, identity, bars)
+    rows = await _load_bars(session, item.ticker, item.exchange)
+    baseline = generate_baseline_signal(_bars_to_frame(rows))
+    analysis_run = AnalysisRun(watchlist_item_id=item.watchlist_item_id, status="completed")
+    session.add(analysis_run)
+    await session.commit()
+    await session.refresh(analysis_run)
+
+    signal = await append_signal(
+        session,
+        SignalCreate(
+            watchlist_item_id=item.watchlist_item_id,
+            analysis_run_id=analysis_run.id,
+            ticker=item.ticker,
+            exchange=item.exchange,
+            market=item.market,
+            analysis_date=rows[-1].bar_date,
+            signal=baseline.signal,
+            confidence=baseline.confidence,
+            entry_price=baseline.entry_price,
+            risk_level=baseline.risk_level,
+            reason=baseline.reason,
+            indicators=baseline.indicators,
+            layer_scores=baseline.layer_scores,
+            source="baseline",
+        ),
+    )
+
+    watchlist_item = await session.get(WatchlistItem, item.watchlist_item_id)
+    if watchlist_item is not None:
+        watchlist_item.last_analyzed_at = datetime.now(timezone.utc)
+        await session.commit()
+
+    return DailyTickerResult(
+        ticker=item.ticker,
+        exchange=item.exchange,
+        market=item.market,
+        watchlist_item_id=item.watchlist_item_id,
+        status="succeeded",
+        signal=signal.signal,
+        confidence=float(signal.confidence or 0),
+        reason=signal.reason,
+        started_at=started_at,
+        finished_at=utc_now(),
+    )
+
+
+async def _upsert_bars(
+    session: AsyncSession,
+    identity: SymbolIdentity,
+    bars: list[TimeSeriesBar],
+) -> None:
+    for bar in bars:
+        existing = (
+            await session.execute(
+                select(MarketDataBar).where(
+                    MarketDataBar.ticker == identity.ticker,
+                    MarketDataBar.exchange == identity.exchange,
+                    MarketDataBar.bar_date == bar.bar_date,
+                    MarketDataBar.source_provider == bar.source_provider,
+                )
+            )
+        ).scalar_one_or_none()
+        if existing is None:
+            session.add(
+                MarketDataBar(
+                    ticker=identity.ticker,
+                    exchange=identity.exchange,
+                    bar_date=bar.bar_date,
+                    open=bar.open,
+                    high=bar.high,
+                    low=bar.low,
+                    close=bar.close,
+                    volume=bar.volume,
+                    source_provider=bar.source_provider,
+                    source_symbol=bar.source_symbol,
+                    fetched_at=bar.fetched_at,
+                    adjustment_mode=bar.adjustment_mode,
+                )
+            )
+        else:
+            existing.open = bar.open
+            existing.high = bar.high
+            existing.low = bar.low
+            existing.close = bar.close
+            existing.volume = bar.volume
+            existing.source_symbol = bar.source_symbol
+            existing.fetched_at = bar.fetched_at
+            existing.adjustment_mode = bar.adjustment_mode
+    await session.commit()
+
+
+async def _load_bars(session: AsyncSession, ticker: str, exchange: str) -> list[MarketDataBar]:
+    return list(
+        (
+            await session.execute(
+                select(MarketDataBar)
+                .where(MarketDataBar.ticker == ticker, MarketDataBar.exchange == exchange)
+                .order_by(MarketDataBar.bar_date.asc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+
+def _bars_to_frame(rows: list[MarketDataBar]) -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {
+                "open": float(row.open),
+                "high": float(row.high),
+                "low": float(row.low),
+                "close": float(row.close),
+                "volume": float(row.volume or 0),
+            }
+            for row in rows
+        ]
+    )

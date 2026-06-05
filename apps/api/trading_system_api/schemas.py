@@ -137,3 +137,36 @@ class KronosForecastRead(BaseModel):
     status: str
     is_fallback: bool
     error_message: str | None
+
+
+class DailyTickerResultRead(BaseModel):
+    id: str
+    ticker: str
+    exchange: str
+    market: str | None
+    status: str
+    signal: str | None
+    confidence: float | None
+    error_message: str | None
+    started_at: datetime
+    finished_at: datetime | None
+
+    model_config = {"from_attributes": True}
+
+
+class DailyRunRead(BaseModel):
+    id: str
+    triggered_by: str
+    status: str
+    started_at: datetime
+    finished_at: datetime | None
+    succeeded_count: int
+    failed_count: int
+    skipped_count: int
+    stale_count: int
+    degraded_count: int
+    email_sent: bool
+    summary: dict
+    items: list[DailyTickerResultRead]
+
+    model_config = {"from_attributes": True}
