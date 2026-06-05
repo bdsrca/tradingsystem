@@ -71,9 +71,14 @@ export default function WatchlistPage() {
           <h1>Watchlist</h1>
           <p>Manage the symbols that will drive daily post-close analysis.</p>
         </div>
-        <Link className="text-link" href="/">
-          Overview
-        </Link>
+        <nav className="link-row" aria-label="Watchlist navigation">
+          <Link className="text-link" href="/daily">
+            Daily
+          </Link>
+          <Link className="text-link" href="/">
+            Overview
+          </Link>
+        </nav>
       </header>
 
       <form className="toolbar" onSubmit={addSymbol}>

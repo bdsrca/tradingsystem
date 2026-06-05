@@ -30,6 +30,7 @@ export default function Home() {
       </header>
       <nav className="home-nav" aria-label="Primary">
         <Link href="/watchlist">Open Watchlist</Link>
+        <Link href="/daily">Open Daily Run</Link>
       </nav>
 
       <section className="grid" aria-label="Planned surfaces">

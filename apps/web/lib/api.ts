@@ -83,6 +83,35 @@ export type PaperRun = {
   snapshots: PaperSnapshot[];
 };
 
+export type DailyTickerResult = {
+  id: string;
+  ticker: string;
+  exchange: string;
+  market: string | null;
+  status: string;
+  signal: string | null;
+  confidence: number | null;
+  error_message: string | null;
+  started_at: string;
+  finished_at: string | null;
+};
+
+export type DailyRun = {
+  id: string;
+  triggered_by: string;
+  status: string;
+  started_at: string;
+  finished_at: string | null;
+  succeeded_count: number;
+  failed_count: number;
+  skipped_count: number;
+  stale_count: number;
+  degraded_count: number;
+  email_sent: boolean;
+  summary: Record<string, unknown>;
+  items: DailyTickerResult[];
+};
+
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 
