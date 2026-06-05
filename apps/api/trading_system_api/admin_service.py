@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 import os
+import shutil
+import subprocess
 from time import perf_counter
+from urllib.parse import urlparse
 
+import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,6 +21,9 @@ from trading_system_api.schemas import (
     AdminSettingsUpdate,
     ServiceHealthRead,
 )
+
+OLLAMA_STARTUP_RETRY_SECONDS = 8.0
+OLLAMA_STARTUP_POLL_SECONDS = 1.0
 
 
 async def get_or_create_app_setting(session: AsyncSession) -> AppSetting:
@@ -125,13 +133,20 @@ async def check_llm(session: AsyncSession, settings: Settings) -> AdminActionRes
     provider = row_settings.llm_provider_type
     remote_key = _remote_llm_api_key()
     if provider == "ollama":
-        status = "ok" if row_settings.llm_base_url and row_settings.llm_model_name else "degraded"
-        details = {
-            "provider": provider,
-            "base_url": row_settings.llm_base_url,
-            "model": row_settings.llm_model_name,
-        }
-        message = "Ollama settings present" if status == "ok" else "Ollama base URL or model missing"
+        if not row_settings.llm_base_url or not row_settings.llm_model_name:
+            status = "degraded"
+            details = {
+                "provider": provider,
+                "base_url": row_settings.llm_base_url,
+                "model": row_settings.llm_model_name,
+                "last_error": "Ollama base URL or model missing",
+            }
+            message = "Ollama base URL or model missing"
+        else:
+            status, message, details = await _check_local_ollama(
+                row_settings.llm_base_url,
+                row_settings.llm_model_name,
+            )
     else:
         status = "ok" if remote_key else "unreachable"
         details = {"provider": provider, "api_key": _secret_status(remote_key)}
@@ -270,3 +285,108 @@ def _secret_status(value: str | None) -> str:
 
 def _remote_llm_api_key() -> str | None:
     return os.getenv("OPENAI_API_KEY") or os.getenv("DEEPSEEK_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
+
+
+async def _check_local_ollama(base_url: str, model_name: str) -> tuple[str, str, dict]:
+    details = {
+        "provider": "ollama",
+        "base_url": base_url,
+        "model": model_name,
+        "auto_start_attempted": False,
+        "auto_started": False,
+    }
+    model_names = await _read_ollama_model_names(base_url)
+    if model_names is None:
+        if not _is_local_ollama_url(base_url):
+            details.update(
+                {
+                    "reachable": False,
+                    "auto_start_skipped": "non_local_base_url",
+                    "last_error": "Ollama is unreachable and base URL is not local",
+                }
+            )
+            return "unreachable", "Ollama unreachable; auto-start skipped for non-local URL", details
+
+        details["auto_start_attempted"] = True
+        details["auto_started"] = _start_ollama_server()
+        if details["auto_started"]:
+            model_names = await _wait_for_ollama_model_names(base_url)
+
+    if model_names is None:
+        details.update({"reachable": False, "last_error": "Ollama is unreachable"})
+        return "unreachable", "Ollama unreachable; auto-start failed", details
+
+    model_installed = _model_installed(model_name, model_names)
+    details.update(
+        {
+            "reachable": True,
+            "model_installed": model_installed,
+            "installed_models": model_names,
+        }
+    )
+    if not model_installed:
+        return "degraded", "Ollama reachable but model is missing", details
+    return "ok", "Ollama reachable and model installed", details
+
+
+async def _wait_for_ollama_model_names(base_url: str) -> list[str] | None:
+    deadline = perf_counter() + OLLAMA_STARTUP_RETRY_SECONDS
+    while True:
+        model_names = await _read_ollama_model_names(base_url)
+        if model_names is not None:
+            return model_names
+        if perf_counter() >= deadline:
+            return None
+        await asyncio.sleep(OLLAMA_STARTUP_POLL_SECONDS)
+
+
+async def _read_ollama_model_names(base_url: str) -> list[str] | None:
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            response = await client.get(f"{_ollama_api_root(base_url)}/api/tags")
+            response.raise_for_status()
+            payload = response.json()
+    except (httpx.HTTPError, ValueError):
+        return None
+    models = payload.get("models", [])
+    if not isinstance(models, list):
+        return []
+    return [model["name"] for model in models if isinstance(model, dict) and isinstance(model.get("name"), str)]
+
+
+def _start_ollama_server() -> bool:
+    executable = shutil.which("ollama")
+    if executable is None:
+        return False
+    kwargs = {
+        "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL,
+    }
+    if os.name == "nt":
+        kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    else:
+        kwargs["start_new_session"] = True
+    try:
+        subprocess.Popen([executable, "serve"], **kwargs)
+    except OSError:
+        return False
+    return True
+
+
+def _is_local_ollama_url(base_url: str) -> bool:
+    parsed = urlparse(base_url)
+    return (
+        parsed.scheme in {"http", "https"}
+        and parsed.hostname in {"127.0.0.1", "localhost", "::1"}
+        and parsed.port == 11434
+    )
+
+
+def _ollama_api_root(base_url: str) -> str:
+    parsed = urlparse(base_url)
+    return f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
+
+
+def _model_installed(model_name: str, model_names: list[str]) -> bool:
+    wanted = model_name.lower()
+    return any(candidate.lower() == wanted for candidate in model_names)

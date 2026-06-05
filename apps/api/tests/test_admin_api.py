@@ -3,6 +3,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+import trading_system_api.admin_service as admin_service
 from trading_system_api.config import get_settings
 from trading_system_api.database import Base, get_session
 from trading_system_api.main import create_app
@@ -208,6 +209,104 @@ async def test_admin_provider_check_updates_health(monkeypatch) -> None:
     assert response.status_code == 200
     assert response.json()["service_name"] == "data_provider"
     assert response.json()["status"] == "ok"
+
+
+@pytest.mark.anyio
+async def test_admin_llm_check_auto_starts_local_ollama(monkeypatch) -> None:
+    get_settings.cache_clear()
+    model_name = "nexusriot/Qwen3.5-Uncensored-HauhauCS-Aggressive:9b"
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    Session = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    tag_calls: list[str] = []
+    starts: list[bool] = []
+
+    async def fake_read_ollama_model_names(base_url: str) -> list[str] | None:
+        tag_calls.append(base_url)
+        if len(tag_calls) == 1:
+            return None
+        return [model_name]
+
+    def fake_start_ollama_server() -> bool:
+        starts.append(True)
+        return True
+
+    monkeypatch.setattr(admin_service, "_read_ollama_model_names", fake_read_ollama_model_names)
+    monkeypatch.setattr(admin_service, "_start_ollama_server", fake_start_ollama_server)
+    monkeypatch.setattr(admin_service, "OLLAMA_STARTUP_RETRY_SECONDS", 0)
+
+    app = create_app()
+
+    async def override_session():
+        async with Session() as session:
+            yield session
+
+    app.dependency_overrides[get_session] = override_session
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        await client.patch(
+            "/admin/settings",
+            headers=ADMIN_HEADERS,
+            json={
+                "llm_provider_type": "ollama",
+                "llm_base_url": "http://127.0.0.1:11434",
+                "llm_model_name": model_name,
+            },
+        )
+        response = await client.post("/admin/test-llm", headers=ADMIN_HEADERS)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["details_json"]["auto_start_attempted"] is True
+    assert body["details_json"]["auto_started"] is True
+    assert body["details_json"]["model_installed"] is True
+    assert starts == [True]
+    assert tag_calls == ["http://127.0.0.1:11434", "http://127.0.0.1:11434"]
+
+
+@pytest.mark.anyio
+async def test_admin_llm_check_does_not_auto_start_remote_ollama(monkeypatch) -> None:
+    get_settings.cache_clear()
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    Session = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    async def fake_read_ollama_model_names(_base_url: str) -> list[str] | None:
+        return None
+
+    def fail_start_ollama_server() -> bool:
+        raise AssertionError("remote Ollama URL must not be auto-started")
+
+    monkeypatch.setattr(admin_service, "_read_ollama_model_names", fake_read_ollama_model_names)
+    monkeypatch.setattr(admin_service, "_start_ollama_server", fail_start_ollama_server)
+
+    app = create_app()
+
+    async def override_session():
+        async with Session() as session:
+            yield session
+
+    app.dependency_overrides[get_session] = override_session
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        await client.patch(
+            "/admin/settings",
+            headers=ADMIN_HEADERS,
+            json={
+                "llm_provider_type": "ollama",
+                "llm_base_url": "http://192.168.1.10:11434",
+                "llm_model_name": "qwen3:8b",
+            },
+        )
+        response = await client.post("/admin/test-llm", headers=ADMIN_HEADERS)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "unreachable"
+    assert body["details_json"]["auto_start_attempted"] is False
+    assert body["details_json"]["auto_start_skipped"] == "non_local_base_url"
 
 
 @pytest.mark.anyio
