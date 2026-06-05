@@ -236,6 +236,9 @@ Tasks:
 - [x] Make the Phase 4 checkpoint decision: use upstream LangGraph `SqliteSaver` with `checkpoint_enabled=True` when initialization succeeds, store pointer metadata only, and degrade to `checkpoint_enabled=False` when initialization fails.
 - [x] Add checkpoint pointer helper and tests for write/read serialization, persistent checkpoint cache path, per-run memory-log isolation, and checkpoint initialization fallback.
 - [ ] Persist checkpoint pointer metadata through the Phase 4 Alembic migration and analysis-run/agent-report storage. Until this migration exists, helpers expose serializable pointer metadata but durable DB storage is not claimed.
+- [x] Verify TradingAgents `AgentState` keys at the pinned commit before writing the output adapter: `market_report`, `sentiment_report`, `news_report`, `fundamentals_report`, `investment_debate_state`, `investment_plan`, `trader_investment_plan`, `risk_debate_state`, and `final_trade_decision`.
+- [x] Add an output adapter that parses `final_state` directly into `AgentReport` rows without reading `_log_state()` JSON files. Missing/empty report fields degrade the corresponding row instead of raising `KeyError`; `structured_json` stores adapter-owned summaries rather than parsed LLM JSON.
+- [ ] Integrate output adapter rows into the Phase 4 API/DB storage path after the Phase 4 Alembic migration exists.
 - [ ] Add decision memory persistence.
 - [ ] Commit.
 

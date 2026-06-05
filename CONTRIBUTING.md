@@ -115,6 +115,31 @@ keeps graph execution and signal extraction as separate timeout windows so a
 future upstream change or extraction failure can degrade to the baseline signal
 while preserving the graph `final_state` for agent reports.
 
+At the pinned commit, `TradingAgentsGraph.propagate()` returns a LangGraph
+`AgentState` dict. `packages/agents/trading_system_agents/output_adapter.py`
+adapts this dict directly and must not read the `_log_state()` JSON file from
+`results_dir`. The real state keys used for V1 reports are:
+
+- `market_report` -> `technical`
+- `fundamentals_report` -> `fundamental`
+- `news_report` plus optional `sentiment_report` metadata -> `news`
+- `investment_debate_state.bull_history` -> `bull`
+- `investment_debate_state.bear_history` -> `bear`
+- `risk_debate_state.judge_decision` or fallback `risk_debate_state.history`
+  -> `risk`
+- `final_trade_decision` -> `final`
+
+The risk debate state uses `aggressive_history`, `conservative_history`, and
+`neutral_history`; it does not use `risky`/`safe` field names. Output adapters
+must use `.get()`/mapping checks for every field. Missing or empty content should
+create an `AgentReport` with empty `content_text` and `is_degraded=True`, not a
+`KeyError`.
+
+`AgentReport.structured_json` stores adapter-owned summaries, not parsed LLM
+JSON. The V1 adapter stores source key, missing flag, extracted key points,
+optional confidence, and for final decisions the extracted TradingAgents rating
+mapped to this platform's signal label.
+
 At the pinned commit, TradingAgents checkpoint files are created by
 `tradingagents/graph/checkpointer.py::_db_path(data_dir, ticker)` at:
 
