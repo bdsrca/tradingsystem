@@ -11,7 +11,13 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from trading_system_api.config import get_settings
 from trading_system_api.database import Base, get_session
 from trading_system_api.main import create_app
-from trading_system_api.models import DailyWorkerRun, DailyWorkerTickerResult, Signal, WatchlistItem
+from trading_system_api.models import (
+    DailyWorkerRun,
+    DailyWorkerTickerResult,
+    MarketDataBar,
+    Signal,
+    WatchlistItem,
+)
 from trading_system_data.twelve_data import TimeSeriesBar
 
 
@@ -110,3 +116,79 @@ def _fake_bars(ticker: str, *, outputsize: int) -> list[TimeSeriesBar]:
             )
         )
     return bars
+
+
+@pytest.mark.asyncio
+async def test_daily_run_degrades_to_existing_bars_when_refresh_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+
+    async with session_factory() as session:
+        item = WatchlistItem(
+            ticker="WELL",
+            exchange="TSX",
+            market="CA",
+            provider_symbol="WELL:TSX",
+            enabled=True,
+            tags=[],
+        )
+        session.add(item)
+        for bar in _fake_bars("WELL:TSX", outputsize=70):
+            session.add(
+                MarketDataBar(
+                    ticker="WELL",
+                    exchange="TSX",
+                    bar_date=bar.bar_date,
+                    open=bar.open,
+                    high=bar.high,
+                    low=bar.low,
+                    close=bar.close,
+                    volume=bar.volume,
+                    source_provider="yfinance_manual",
+                    source_symbol="WELL.TO",
+                    fetched_at=bar.fetched_at,
+                    adjustment_mode="split_adjusted",
+                )
+            )
+        await session.commit()
+
+    class FailingTwelveDataClient:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        async def fetch_daily_bars(self, identity, *, outputsize: int = 500):
+            raise ValueError("plan does not include this exchange")
+
+    async def override_session():
+        async with session_factory() as session:
+            yield session
+
+    monkeypatch.setenv("TWELVE_DATA_API_KEY", "test-key")
+    monkeypatch.setenv("DAILY_KRONOS_ENABLED", "false")
+    monkeypatch.setenv("DAILY_EMAIL_ENABLED", "false")
+    get_settings.cache_clear()
+    monkeypatch.setattr(
+        "trading_system_api.daily_service.TwelveDataClient",
+        FailingTwelveDataClient,
+        raising=False,
+    )
+
+    app = create_app()
+    app.dependency_overrides[get_session] = override_session
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        created = await client.post("/daily/run")
+
+    assert created.status_code == 201
+    body = created.json()
+    assert body["status"] == "degraded"
+    assert body["degraded_count"] == 1
+    assert body["failed_count"] == 0
+    assert body["items"][0]["status"] == "degraded"
+    assert body["items"][0]["signal"] in {"BUY", "WATCH", "HOLD", "REDUCE", "SELL"}
+    assert "used existing bars" in body["items"][0]["error_message"]

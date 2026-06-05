@@ -118,21 +118,31 @@ async def _analyze_ticker(
         )
 
     identity = SymbolIdentity(ticker=item.ticker, exchange=item.exchange, market=item.market)
-    bars = await TwelveDataClient(settings.twelve_data_api_key).fetch_daily_bars(identity)
-    if not bars:
+    refresh_error: str | None = None
+    try:
+        bars = await TwelveDataClient(settings.twelve_data_api_key).fetch_daily_bars(identity)
+    except Exception as exc:
+        bars = []
+        refresh_error = str(exc)
+
+    if bars:
+        await _upsert_bars(session, identity, bars)
+    else:
+        refresh_error = refresh_error or "No OHLCV bars returned"
+
+    rows = await _load_bars(session, item.ticker, item.exchange)
+    if not rows:
         return DailyTickerResult(
             ticker=item.ticker,
             exchange=item.exchange,
             market=item.market,
             watchlist_item_id=item.watchlist_item_id,
             status="stale",
-            error_message="No OHLCV bars returned",
+            error_message=refresh_error,
             started_at=started_at,
             finished_at=utc_now(),
         )
 
-    await _upsert_bars(session, identity, bars)
-    rows = await _load_bars(session, item.ticker, item.exchange)
     baseline = generate_baseline_signal(_bars_to_frame(rows))
     analysis_run = AnalysisRun(watchlist_item_id=item.watchlist_item_id, status="completed")
     session.add(analysis_run)
@@ -169,10 +179,13 @@ async def _analyze_ticker(
         exchange=item.exchange,
         market=item.market,
         watchlist_item_id=item.watchlist_item_id,
-        status="succeeded",
+        status="degraded" if refresh_error else "succeeded",
         signal=signal.signal,
         confidence=float(signal.confidence or 0),
         reason=signal.reason,
+        error_message=f"price refresh failed; used existing bars: {refresh_error}"
+        if refresh_error
+        else None,
         started_at=started_at,
         finished_at=utc_now(),
     )
