@@ -44,8 +44,8 @@ class LazyKronosRunner:
         frame = _request_to_frame(request)
         return predictor.predict(
             df=frame,
-            x_timestamp=frame.index,
-            y_timestamp=pd.to_datetime(request.future_times),
+            x_timestamp=pd.Series(frame.index),
+            y_timestamp=pd.Series(pd.to_datetime(request.future_times)),
             pred_len=request.pred_len,
             T=request.temperature,
             top_p=request.top_p,
@@ -103,4 +103,3 @@ def _request_to_frame(request: KronosForecastRequest) -> pd.DataFrame:
         ],
         index=pd.to_datetime([item.time for item in request.bars]),
     )
-

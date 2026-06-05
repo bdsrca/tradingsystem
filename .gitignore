@@ -9,6 +9,8 @@ apps/web/tsconfig.tsbuildinfo
 .playwright-mcp/
 
 .venv/
+.venv-kronos/
+.runtime/
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -22,3 +24,5 @@ htmlcov/
 
 dist/
 build/
+
+vendor/Kronos/
