@@ -33,6 +33,25 @@ export type SignalMarker = {
   text: string;
 };
 
+export type SignalOutcomeBackfill = {
+  horizon_days: number;
+  filled_count: number;
+  skipped_count: number;
+};
+
+export type SignalAccuracy = {
+  ticker: string | null;
+  exchange: string | null;
+  window: number;
+  evaluated_count: number;
+  trusted_count: number;
+  delayed_count: number;
+  backfilled_count: number;
+  backfilled_excluded_count: number;
+  win_rate_pct: number;
+  average_return_pct: number;
+};
+
 export type KronosForecastPoint = {
   time: string;
   close: number;

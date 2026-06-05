@@ -85,6 +85,25 @@ class SignalMarkerRead(BaseModel):
     text: str
 
 
+class SignalOutcomeBackfillRead(BaseModel):
+    horizon_days: int
+    filled_count: int
+    skipped_count: int
+
+
+class SignalAccuracyRead(BaseModel):
+    ticker: str | None
+    exchange: str | None
+    window: int
+    evaluated_count: int
+    trusted_count: int
+    delayed_count: int
+    backfilled_count: int
+    backfilled_excluded_count: int
+    win_rate_pct: float
+    average_return_pct: float
+
+
 class PaperMetricsRead(BaseModel):
     total_return_pct: float
     max_drawdown_pct: float

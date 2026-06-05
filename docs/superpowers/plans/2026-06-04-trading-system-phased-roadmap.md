@@ -320,7 +320,7 @@ Tasks:
 - [x] Add backup/restore documentation.
 - [x] Add smoke test script.
 - [x] Update README with first-run instructions.
-- [ ] Commit.
+- [x] Commit.
 
 ## Phase 7: Calibration And Quality Tracking
 
@@ -339,18 +339,20 @@ Verification:
 
 - Realized 5/10/20/30 day outcomes are backfilled.
 - Accuracy dashboard shows forecast vs actual.
+- Accuracy excludes backfilled signals by default and exposes trusted/delayed/backfilled counts to avoid look-ahead bias.
 - UI highlights Kronos/agent disagreement.
 - Disagreement calculation fills `signals.disagreement_level` using the stored nullable column from Phase 2.
 
 Tasks:
 
-- [ ] Write failing tests for realized outcome backfill.
-- [ ] Implement outcome backfill job.
-- [ ] Add accuracy tracking query/API.
-- [ ] Add accuracy dashboard.
+- [x] Write failing tests for realized outcome backfill.
+- [x] Implement outcome backfill job.
+- [x] Add accuracy tracking query/API.
+- [x] Add minimal accuracy dashboard. Polished dashboard work is deferred.
+- [x] Add Kronos cross-market caveat to chart marker text for Kronos-sourced signals.
 - [ ] Define disagreement rules before UI work: direction mismatch is `hard`; Kronos magnitude above the configured threshold while the final signal is `HOLD` or `WATCH` is `soft`; otherwise `none`.
 - [ ] Add Kronos disagreement UI state.
-- [ ] Commit.
+- [x] Commit.
 
 ## Recommended Starting Point
 

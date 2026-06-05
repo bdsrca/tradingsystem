@@ -93,6 +93,9 @@ export default function WatchlistPage() {
           <Link className="text-link" href="/daily">
             Daily
           </Link>
+          <Link className="text-link" href="/accuracy">
+            Accuracy
+          </Link>
           <Link className="text-link" href="/">
             Overview
           </Link>

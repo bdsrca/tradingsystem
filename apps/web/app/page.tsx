@@ -31,6 +31,7 @@ export default function Home() {
       <nav className="home-nav" aria-label="Primary">
         <Link href="/watchlist">Open Watchlist</Link>
         <Link href="/daily">Open Daily Run</Link>
+        <Link href="/accuracy">Open Accuracy</Link>
       </nav>
 
       <section className="grid" aria-label="Planned surfaces">

@@ -126,13 +126,21 @@ a {
   max-width: 560px;
 }
 
-.toolbar input {
+.toolbar input,
+.toolbar select {
   border: 1px solid var(--border);
   border-radius: 6px;
-  flex: 1;
   font: inherit;
   min-width: 0;
   padding: 10px 12px;
+}
+
+.toolbar input {
+  flex: 1;
+}
+
+.toolbar select {
+  background: var(--panel);
 }
 
 .toolbar button {

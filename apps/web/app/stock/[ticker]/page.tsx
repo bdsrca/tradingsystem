@@ -60,6 +60,9 @@ export default async function StockDetailPage({ params, searchParams }: Props) {
           <Link className="text-link" href={`/paper/${ticker.toUpperCase()}${query}`}>
             Paper
           </Link>
+          <Link className="text-link" href="/accuracy">
+            Accuracy
+          </Link>
         </nav>
       </header>
 

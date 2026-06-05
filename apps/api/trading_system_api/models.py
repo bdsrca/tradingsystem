@@ -183,6 +183,34 @@ class Signal(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
+class SignalOutcome(Base):
+    __tablename__ = "signal_outcomes"
+    __table_args__ = (
+        UniqueConstraint("signal_id", "horizon_days", name="uq_signal_outcomes_signal_horizon"),
+        CheckConstraint(
+            "evaluation_eligibility IN ('trusted', 'delayed', 'backfilled')",
+            name="ck_signal_outcomes_evaluation_eligibility",
+        ),
+        CheckConstraint(
+            "realized_outcome IN ('win', 'loss', 'flat')",
+            name="ck_signal_outcomes_realized_outcome",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
+    signal_id: Mapped[str] = mapped_column(ForeignKey("signals.id"), nullable=False)
+    ticker: Mapped[str] = mapped_column(String(32), nullable=False)
+    exchange: Mapped[str] = mapped_column(String(32), nullable=False)
+    horizon_days: Mapped[int] = mapped_column(Integer, nullable=False)
+    target_date: Mapped[date] = mapped_column(Date, nullable=False)
+    realized_price: Mapped[float] = mapped_column(Numeric(18, 6), nullable=False)
+    realized_return_pct: Mapped[float] = mapped_column(Numeric(12, 6), nullable=False)
+    realized_outcome: Mapped[str] = mapped_column(String(16), nullable=False)
+    evaluation_eligibility: Mapped[str] = mapped_column(String(16), nullable=False)
+    lag_days: Mapped[int] = mapped_column(Integer, nullable=False)
+    filled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+
+
 class DailyWorkerRun(Base):
     __tablename__ = "daily_worker_runs"
     __table_args__ = (

@@ -51,6 +51,9 @@ export default function DailyPage() {
           <Link className="text-link" href="/watchlist">
             Watchlist
           </Link>
+          <Link className="text-link" href="/accuracy">
+            Accuracy
+          </Link>
           <Link className="text-link" href="/">
             Overview
           </Link>
