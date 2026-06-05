@@ -11,6 +11,7 @@ export default function WatchlistPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   async function loadWatchlist() {
     setLoading(true);
@@ -64,6 +65,23 @@ export default function WatchlistPage() {
     }
   }
 
+  async function removeSymbol(item: WatchlistItem) {
+    setDeletingId(item.id);
+    setError(null);
+    try {
+      await fetchJson(`/watchlist/${item.id}`, { method: "DELETE" });
+      await loadWatchlist();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? `Failed to remove ${item.ticker}: ${err.message}`
+          : `Failed to remove ${item.ticker}`
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   return (
     <main className="shell">
       <header className="topbar">
@@ -105,6 +123,7 @@ export default function WatchlistPage() {
               <th>Provider Symbol</th>
               <th>Status</th>
               <th>Tags</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -121,6 +140,16 @@ export default function WatchlistPage() {
                 <td>{item.provider_symbol}</td>
                 <td>{item.enabled ? "Enabled" : "Paused"}</td>
                 <td>{item.tags.join(", ") || "-"}</td>
+                <td>
+                  <button
+                    className="table-button danger"
+                    disabled={deletingId === item.id}
+                    onClick={() => void removeSymbol(item)}
+                    type="button"
+                  >
+                    {deletingId === item.id ? "Removing" : "Remove"}
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>

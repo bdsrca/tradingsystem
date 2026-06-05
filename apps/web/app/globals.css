@@ -190,6 +190,26 @@ td a {
   text-decoration: none;
 }
 
+.table-button {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 7px 10px;
+}
+
+.table-button.danger {
+  background: #fff;
+  color: #b42318;
+}
+
+.table-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 .freshness {
   border-radius: 999px;
   display: inline-block;
