@@ -1,5 +1,4 @@
-import Link from "next/link";
-
+import AppNav from "../../../components/AppNav";
 import { fetchJson, type PaperRun, type PaperSnapshot } from "../../../lib/api";
 
 type Props = {
@@ -12,7 +11,6 @@ export const dynamic = "force-dynamic";
 export default async function PaperValidationPage({ params, searchParams }: Props) {
   const { ticker } = await params;
   const { exchange } = await searchParams;
-  const query = exchange ? `?exchange=${encodeURIComponent(exchange)}` : "";
   const runs = await Promise.all([1, 2, 3].map((years) => loadRun(ticker, exchange, years)));
 
   return (
@@ -22,14 +20,7 @@ export default async function PaperValidationPage({ params, searchParams }: Prop
           <h1>{ticker.toUpperCase()} Paper</h1>
           <p>Frozen baseline signal validation.</p>
         </div>
-        <nav className="link-row" aria-label="Paper navigation">
-          <Link className="text-link" href={`/stock/${ticker.toUpperCase()}${query}`}>
-            Chart
-          </Link>
-          <Link className="text-link" href="/watchlist">
-            Watchlist
-          </Link>
-        </nav>
+        <AppNav />
       </header>
 
       <section className="paper-grid" aria-label="Paper validation windows">

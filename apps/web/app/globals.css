@@ -90,6 +90,22 @@ a {
   text-decoration: none;
 }
 
+.nav-muted {
+  color: var(--muted);
+  margin-left: auto;
+}
+
+.button-link {
+  background: var(--accent);
+  border-radius: 6px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 10px 14px;
+  text-decoration: none;
+}
+
 .link-row,
 .action-row {
   align-items: center;

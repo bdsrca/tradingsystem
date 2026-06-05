@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 
+import AppNav from "../../components/AppNav";
 import {
   fetchJson,
   type SignalAccuracy,
@@ -92,17 +92,7 @@ export default function AccuracyPage() {
           <h1>Accuracy</h1>
           <p>Signal outcome tracking by trading-day window.</p>
         </div>
-        <nav className="link-row" aria-label="Accuracy navigation">
-          <Link className="text-link" href="/watchlist">
-            Watchlist
-          </Link>
-          <Link className="text-link" href="/daily">
-            Daily
-          </Link>
-          <Link className="text-link" href="/">
-            Overview
-          </Link>
-        </nav>
+        <AppNav />
       </header>
 
       <form className="toolbar" onSubmit={loadAccuracy}>

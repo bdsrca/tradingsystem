@@ -1,5 +1,4 @@
-import Link from "next/link";
-
+import AppNav from "../../../components/AppNav";
 import AnalyzeControls from "../../../components/AnalyzeControls";
 import CandlestickChart from "../../../components/chart/CandlestickChartLoader";
 import {
@@ -53,17 +52,7 @@ export default async function StockDetailPage({ params, searchParams }: Props) {
           <h1>{ticker.toUpperCase()}</h1>
           <p>Daily candlestick chart with deterministic baseline markers.</p>
         </div>
-        <nav className="link-row" aria-label="Stock navigation">
-          <Link className="text-link" href="/watchlist">
-            Watchlist
-          </Link>
-          <Link className="text-link" href={`/paper/${ticker.toUpperCase()}${query}`}>
-            Paper
-          </Link>
-          <Link className="text-link" href="/accuracy">
-            Accuracy
-          </Link>
-        </nav>
+        <AppNav />
       </header>
 
       <AnalyzeControls ticker={ticker.toUpperCase()} exchange={exchange} />

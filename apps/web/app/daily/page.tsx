@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import AppNav from "../../components/AppNav";
 import { fetchJson, type DailyRun } from "../../lib/api";
 
 export default function DailyPage() {
@@ -47,17 +48,7 @@ export default function DailyPage() {
           <h1>Daily Run</h1>
           <p>Post-close watchlist analysis and digest status.</p>
         </div>
-        <nav className="link-row" aria-label="Daily navigation">
-          <Link className="text-link" href="/watchlist">
-            Watchlist
-          </Link>
-          <Link className="text-link" href="/accuracy">
-            Accuracy
-          </Link>
-          <Link className="text-link" href="/">
-            Overview
-          </Link>
-        </nav>
+        <AppNav />
       </header>
 
       <div className="action-row">

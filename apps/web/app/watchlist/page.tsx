@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 
+import AppNav from "../../components/AppNav";
 import { fetchJson, type WatchlistItem } from "../../lib/api";
 
 export default function WatchlistPage() {
@@ -89,17 +90,7 @@ export default function WatchlistPage() {
           <h1>Watchlist</h1>
           <p>Manage the symbols that will drive daily post-close analysis.</p>
         </div>
-        <nav className="link-row" aria-label="Watchlist navigation">
-          <Link className="text-link" href="/daily">
-            Daily
-          </Link>
-          <Link className="text-link" href="/accuracy">
-            Accuracy
-          </Link>
-          <Link className="text-link" href="/">
-            Overview
-          </Link>
-        </nav>
+        <AppNav />
       </header>
 
       <form className="toolbar" onSubmit={addSymbol}>

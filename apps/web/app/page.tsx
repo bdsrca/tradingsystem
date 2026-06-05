@@ -1,19 +1,6 @@
 import Link from "next/link";
 
-const phaseCards = [
-  {
-    title: "Watchlist",
-    text: "Single-user watchlist management will drive daily post-close analysis."
-  },
-  {
-    title: "Signals",
-    text: "The first signal engine starts deterministic before Kronos and TradingAgents are integrated."
-  },
-  {
-    title: "Validation",
-    text: "Paper validation will use frozen historical signals so results stay reproducible."
-  }
-];
+import AppNav from "../components/AppNav";
 
 export default function Home() {
   return (
@@ -25,22 +12,21 @@ export default function Home() {
         </div>
         <div className="status" aria-label="Phase 2 status">
           <span className="status-dot" aria-hidden="true" />
-          Phase 2 baseline
+          Local-first
         </div>
       </header>
-      <nav className="home-nav" aria-label="Primary">
-        <Link href="/watchlist">Open Watchlist</Link>
-        <Link href="/daily">Open Daily Run</Link>
-        <Link href="/accuracy">Open Accuracy</Link>
-      </nav>
+      <AppNav className="home-nav" />
 
-      <section className="grid" aria-label="Planned surfaces">
-        {phaseCards.map((card) => (
-          <article className="panel" key={card.title}>
-            <h2>{card.title}</h2>
-            <p>{card.text}</p>
-          </article>
-        ))}
+      <section className="paper-grid" aria-label="Overview">
+        <article className="paper-panel">
+          <h2>Today's Summary</h2>
+          <p className="muted">Open the dashboard for latest signals, data health, and watchlist scan.</p>
+          <div className="action-row">
+            <Link className="button-link" href="/dashboard">
+              Open Dashboard
+            </Link>
+          </div>
+        </article>
       </section>
     </main>
   );
