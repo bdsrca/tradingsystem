@@ -183,6 +183,86 @@ class Signal(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
+class DailyWorkerRun(Base):
+    __tablename__ = "daily_worker_runs"
+    __table_args__ = (
+        CheckConstraint(
+            "triggered_by IN ('manual', 'scheduler', 'test')",
+            name="ck_daily_worker_runs_triggered_by",
+        ),
+        CheckConstraint(
+            "status IN ('running', 'completed', 'failed', 'degraded')",
+            name="ck_daily_worker_runs_status",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
+    triggered_by: Mapped[str] = mapped_column(String(16), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="running", nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    succeeded_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    failed_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    skipped_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    stale_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    degraded_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    email_sent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    summary: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class DailyWorkerTickerResult(Base):
+    __tablename__ = "daily_worker_ticker_results"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('succeeded', 'failed', 'skipped', 'stale', 'degraded')",
+            name="ck_daily_worker_ticker_results_status",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
+    worker_run_id: Mapped[str] = mapped_column(
+        ForeignKey("daily_worker_runs.id"),
+        nullable=False,
+    )
+    watchlist_item_id: Mapped[str | None] = mapped_column(ForeignKey("watchlist_items.id"))
+    ticker: Mapped[str] = mapped_column(String(32), nullable=False)
+    exchange: Mapped[str] = mapped_column(String(32), nullable=False)
+    market: Mapped[str | None] = mapped_column(String(8))
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    signal: Mapped[str | None] = mapped_column(String(16))
+    confidence: Mapped[float | None] = mapped_column(Numeric(6, 4))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class EmailNotification(Base):
+    __tablename__ = "email_notifications"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'sent', 'suppressed', 'failed')",
+            name="ck_email_notifications_status",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
+    worker_run_id: Mapped[str | None] = mapped_column(ForeignKey("daily_worker_runs.id"))
+    ticker: Mapped[str | None] = mapped_column(String(32))
+    exchange: Mapped[str | None] = mapped_column(String(32))
+    signal: Mapped[str | None] = mapped_column(String(16))
+    recipient: Mapped[str | None] = mapped_column(String(255))
+    subject: Mapped[str] = mapped_column(String(255), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False)
+    debounce_key: Mapped[str | None] = mapped_column(String(128))
+    is_digest: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
 class PaperSimulationRun(Base):
     __tablename__ = "paper_simulation_runs"
 
