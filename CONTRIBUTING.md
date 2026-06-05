@@ -54,7 +54,8 @@ platform's frozen data snapshot instead of monkey-patching broad internals.
 Known direct yfinance escape paths at the pinned commit:
 
 - `tradingagents/graph/trading_graph.py::_fetch_returns()`
-- `tradingagents/graph/trading_graph.py::resolve_instrument_identity()`
+- `tradingagents/graph/trading_graph.py` calls `resolve_instrument_identity()`
+- `tradingagents/agents/utils/agent_utils.py::resolve_instrument_identity()` calls `yf.Ticker(...).info`
 
 The Phase 4 default is no live market-data network calls during an agent run.
 Tests should fail if yfinance or another external market-data source is reached
@@ -62,11 +63,33 @@ outside the platform snapshot. Company identity can fail open to stored metadata
 or an empty value, but it should not silently perform live network lookup by
 default.
 
+No-network tests must cover both direct yfinance calls and HTTP client paths.
+Patch `yfinance.download` and `yfinance.Ticker` to fail fast in agent workflow
+tests, and use `pytest-httpx` or `respx` to block market-data hostnames such as
+`finance.yahoo.com`, `query1.finance.yahoo.com`, `twelvedata.com`, and
+`finnhub.io`. LLM endpoints may be allowed only in explicit integration tests;
+market-data hosts remain blocked.
+
 TradingAgents can run in the main Python environment if dependency dry-run
 checks pass. Its synchronous graph execution must be wrapped with an executor or
 worker boundary before exposing it from FastAPI. Checkpoint support should reuse
 the upstream LangGraph/SQLite saver and store only checkpoint pointer metadata
 in this platform's database.
+
+Executor lifecycle decision for Phase 4: the TradingAgents sync graph executor
+is a FastAPI app-lifespan singleton with `max_workers` from settings, defaulting
+to 2. It is not per request. Snapshot context isolation must use a
+`ContextVar`-style boundary plus a `finally` reset inside the synchronous runner
+so reused executor threads cannot leak one ticker's snapshot into another
+ticker's analysis. Phase 5 scheduler work must respect this executor capacity.
+
+Phase 4 must choose one checkpoint path before implementation starts:
+
+- Enable upstream LangGraph `SqliteSaver`, set `checkpoint_enabled=True`, store
+  sqlite path/thread ID as database pointer metadata, and test that the pointer
+  is written and readable.
+- Or defer checkpoint pointer support to Phase 6, keep `checkpoint_enabled=False`,
+  and remove checkpoint completion claims from Phase 4 verification.
 
 ## Local Development
 

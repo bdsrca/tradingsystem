@@ -85,6 +85,12 @@ Primary use:
 - Risk manager decision.
 - Final signal explanation.
 
+V1 defaults:
+
+- `selected_analysts` is restricted to `market`, `news`, and `fundamentals` until additional analysts have platform-backed tools and no-network tests.
+- `max_debate_rounds` and `max_risk_discuss_rounds` are configurable. Remote LLM providers default to one round; Ollama/local smaller models default to two rounds because single-round debate can produce structurally incomplete outputs more often.
+- Unsupported analyst requests fail fast with a configuration error before constructing the TradingAgents graph.
+
 Reference: https://github.com/tauricresearch/tradingagents
 
 ## 4. User Experience
@@ -289,9 +295,13 @@ Rules:
 - Agents must not independently fetch Yahoo Finance, Alpha Vantage, or other external market data during a run.
 - If an upstream TradingAgents component is reused, its data tools must be wrapped or disabled so all numerical inputs come from the platform snapshot.
 - The default Phase 4 test environment must fail if a TradingAgents run attempts live yfinance/network market-data calls.
+- No-network tests should block direct `yfinance.download` and `yfinance.Ticker` calls and also intercept HTTP clients such as `httpx`/`aiohttp` for market-data hostnames.
+- Tests may separately allow configured LLM endpoints in explicit integration runs, but market-data hosts remain blocked outside platform providers.
 - TradingAgents' vendor routing should register a platform vendor that serves snapshot-backed market data, indicators, fundamentals, and news where supported.
 - Direct yfinance paths outside vendor routing, including realized-return helpers and instrument-identity helpers, must be explicitly handled before agent workflow tests are allowed to pass.
 - Company identity may fail open to stored metadata or an empty value, but it must not silently perform live network lookup by default.
+- Snapshot context in any TradingAgents vendor bridge must be set and reset inside the synchronous runner boundary. Executor thread reuse must not carry one ticker's snapshot into another ticker's run.
+- V1 allows only the `market`, `news`, and `fundamentals` analyst set unless a new analyst has a platform-backed data tool and no-network tests.
 - Snapshot metadata records the provider, symbol mapping, fetch time, adjustment mode, and calendar used.
 - If a supplemental provider is used for fundamentals or news, that data is stored in the snapshot before agent execution and labeled with its source.
 
@@ -587,9 +597,10 @@ Required prompt blocks:
 Rules:
 
 - Agents must not introduce new numerical facts that are absent from `[DATA]` or `[COMPUTED]`.
+- Agents must not introduce future event dates, earnings dates, dividends, splits, approvals, or other dated catalysts that are absent from the snapshot's news, fundamentals, or explicit event records.
 - Agents must cite the field name or source block for important numerical claims.
-- The final explanation step includes a validation pass that checks generated numbers against structured input.
-- If the validator detects unsupported numbers or contradictions, the run is marked degraded and regenerated once with stricter instructions.
+- The final explanation step includes a validation pass that checks generated numbers and dated event claims against structured input.
+- If the validator detects unsupported numbers, unsupported future dates, or contradictions, the affected agent report is marked degraded and the run is regenerated once with stricter instructions.
 - Prompt versions are recorded with each analysis run so future signal quality can be compared across prompt changes.
 
 ## 8. Data Model
@@ -646,7 +657,7 @@ Rules:
 - Corrections create a new signal revision linked to the original.
 - Paper validation references specific signal IDs and a specific simulation assumption snapshot.
 - Historical backtests must not regenerate prior LLM outputs dynamically.
-- Signal rows store prompt version, model provider, data snapshot ID, and generated-at timestamp.
+- Signal rows store only the final trade signal, confidence, risk levels, final prompt/model metadata, data snapshot ID, and generated-at timestamp. Full agent report text and prompt blobs belong in `agent_reports`, not in `signals`.
 
 Realized outcome fields are backfilled by a separate outcome job:
 
@@ -694,6 +705,20 @@ Additional observability fields:
 - `provider_health_snapshot`
 - `checkpoint_state`
 - `data_snapshot_id`
+- `checkpoint_pointer_path`
+- `checkpoint_thread_id`
+
+### agent_reports
+
+Agent reports store the intermediate and final LLM/TradingAgents outputs used to explain a decision.
+
+Rules:
+
+- Store one row per analyst stage: `technical`, `fundamental`, `news`, `bull`, `bear`, `risk`, and `final`.
+- Required fields include `analysis_run_id`, `role`, `stage`, `content_text`, `structured_json`, `prompt_version`, `model_provider`, `model_name`, `duration_ms`, and `is_degraded`.
+- Hallucination warnings, including unsupported numbers and unsupported future event dates, are stored in `structured_json`.
+- Report rows reference the immutable data snapshot and prompt/model versions used to generate them.
+- `signals` references only the final decision output; it should not duplicate full agent report text.
 
 ### paper_trades
 
