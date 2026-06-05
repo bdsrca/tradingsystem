@@ -18,11 +18,14 @@ class TradingAgentsRuntimeDirs:
     run_dir: Path
     data_cache_dir: Path
     results_dir: Path
+    memory_log_path: Path
 
-    def config_values(self) -> dict[str, str]:
+    def config_values(self, *, data_cache_dir: str | Path | None = None) -> dict[str, str]:
+        resolved_data_cache_dir = Path(data_cache_dir).resolve() if data_cache_dir else self.data_cache_dir
         return {
-            "data_cache_dir": str(self.data_cache_dir),
+            "data_cache_dir": str(resolved_data_cache_dir),
             "results_dir": str(self.results_dir),
+            "memory_log_path": str(self.memory_log_path),
         }
 
 
@@ -85,12 +88,16 @@ def prepare_isolated_runtime_dirs(base_dir: str | Path, *, run_id: str) -> Tradi
 
     data_cache_dir = run_dir / "data_cache"
     results_dir = run_dir / "results"
+    memory_dir = run_dir / "memory"
+    memory_log_path = memory_dir / "trading_memory.md"
     data_cache_dir.mkdir(parents=True, exist_ok=False)
     results_dir.mkdir(parents=False, exist_ok=False)
+    memory_dir.mkdir(parents=False, exist_ok=False)
     return TradingAgentsRuntimeDirs(
         run_dir=run_dir,
         data_cache_dir=data_cache_dir,
         results_dir=results_dir,
+        memory_log_path=memory_log_path,
     )
 
 

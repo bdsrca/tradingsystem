@@ -115,6 +115,33 @@ keeps graph execution and signal extraction as separate timeout windows so a
 future upstream change or extraction failure can degrade to the baseline signal
 while preserving the graph `final_state` for agent reports.
 
+At the pinned commit, TradingAgents checkpoint files are created by
+`tradingagents/graph/checkpointer.py::_db_path(data_dir, ticker)` at:
+
+```text
+{data_cache_dir}/checkpoints/{safe_ticker.upper()}.db
+```
+
+The LangGraph `thread_id` is `sha256(f"{ticker.upper()}:{trade_date}")[:16]`
+and the checkpoint namespace is the LangGraph default empty string. Store these
+as pointer metadata only: checkpoint DB absolute path, thread ID, and namespace.
+Do not copy LangGraph checkpoint rows or blobs into this platform's tables.
+
+`clear_checkpoint(data_dir, ticker, date)` deletes rows from the `writes` and
+`checkpoints` tables for that thread ID; it does not delete the SQLite DB file.
+`clear_all_checkpoints(data_dir)` is the function that unlinks DB files.
+
+Checkpoint cache must be persistent. Do not point `data_cache_dir` at the
+Phase 4B per-run directory when `checkpoint_enabled=True`, because a per-run
+cleanup would invalidate the pointer. Instead, use a persistent checkpoint/cache
+directory for `data_cache_dir` and set `memory_log_path` to the per-run
+`memory/trading_memory.md` path so stale memory entries remain isolated.
+`packages/agents/trading_system_agents/checkpoint.py` contains the pointer and
+checkpoint fallback helper. If checkpoint initialization fails, the runner must
+set `checkpoint_enabled=False`, continue the agent run, and record
+`checkpoint_skipped=True` plus the skip reason in agent report/run metadata when
+the Phase 4 schema exists.
+
 TradingAgents can run in the main Python environment if dependency dry-run
 checks pass. Its synchronous graph execution must be wrapped with an executor or
 worker boundary before exposing it from FastAPI. Checkpoint support should reuse
@@ -128,13 +155,12 @@ to 2. It is not per request. Snapshot context isolation must use a
 so reused executor threads cannot leak one ticker's snapshot into another
 ticker's analysis. Phase 5 scheduler work must respect this executor capacity.
 
-Phase 4 must choose one checkpoint path before implementation starts:
-
-- Enable upstream LangGraph `SqliteSaver`, set `checkpoint_enabled=True`, store
-  sqlite path/thread ID as database pointer metadata, and test that the pointer
-  is written and readable.
-- Or defer checkpoint pointer support to Phase 6, keep `checkpoint_enabled=False`,
-  and remove checkpoint completion claims from Phase 4 verification.
+Phase 4 checkpoint decision: use upstream LangGraph `SqliteSaver` with
+`checkpoint_enabled=True` when initialization succeeds, store sqlite path/thread
+ID/namespace as pointer metadata, and degrade to `checkpoint_enabled=False` if
+initialization fails. The database persistence columns/table are added by the
+Phase 4 Alembic migration; until that migration exists, helpers expose
+serializable pointer metadata but do not claim durable DB storage.
 
 ## Local Development
 

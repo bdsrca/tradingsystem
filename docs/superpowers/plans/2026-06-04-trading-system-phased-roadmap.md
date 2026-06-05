@@ -232,7 +232,10 @@ Tasks:
 - [ ] Implement one retry path for degraded agent output.
 - [x] Define `agent_reports` schema before writing the Phase 4 Alembic migration: one row per analyst stage (`technical`, `fundamental`, `news`, `bull`, `bear`, `risk`, `final`) with `role`, `stage`, `content_text`, `structured_json`, `prompt_version`, `model_provider`, `model_name`, `duration_ms`, and `is_degraded`. `analysis_runs` stores snapshot/checkpoint/run-level timing metadata; `signals` stores only the final trade signal and confidence.
 - [ ] Add Phase 4 Alembic migration for data snapshot IDs, agent report storage, checkpoint pointer metadata, and prompt/model version fields introduced after Phase 3.
-- [ ] Make a checkpoint decision before starting Phase 4 implementation. Option A: enable upstream LangGraph `SqliteSaver`, set `checkpoint_enabled=True`, store sqlite path and thread ID as a pointer, and mark checkpoint complete only after a test confirms the pointer is written and readable. Option B: defer checkpoint pointer support to Phase 6, keep `checkpoint_enabled=False`, remove checkpoint verification claims from Phase 4, and add the task explicitly to Phase 6.
+- [x] Verify TradingAgents checkpoint source at the pinned commit: `get_checkpointer(data_cache_dir, ticker)` stores `{data_cache_dir}/checkpoints/{safe_ticker.upper()}.db`; `thread_id` is `sha256(f"{ticker.upper()}:{trade_date}")[:16]`; `clear_checkpoint()` deletes thread rows from `writes` and `checkpoints` and does not delete the DB file.
+- [x] Make the Phase 4 checkpoint decision: use upstream LangGraph `SqliteSaver` with `checkpoint_enabled=True` when initialization succeeds, store pointer metadata only, and degrade to `checkpoint_enabled=False` when initialization fails.
+- [x] Add checkpoint pointer helper and tests for write/read serialization, persistent checkpoint cache path, per-run memory-log isolation, and checkpoint initialization fallback.
+- [ ] Persist checkpoint pointer metadata through the Phase 4 Alembic migration and analysis-run/agent-report storage. Until this migration exists, helpers expose serializable pointer metadata but durable DB storage is not claimed.
 - [ ] Add decision memory persistence.
 - [ ] Commit.
 
