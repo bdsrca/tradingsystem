@@ -217,14 +217,15 @@ Tasks:
 - [x] Add Phase 4B escape-path guard helpers for TradingAgents runs: fresh per-run `data_cache_dir`/`results_dir` creation that fails closed when reused, plus a pending-entry resolution no-op guard so stale memory logs cannot trigger `_fetch_returns()` and yfinance before the platform owns realized-return backfill.
 - [ ] Integrate the Phase 4B escape-path guard helpers into the actual TradingAgents runner before constructing workflow tests.
 - [x] Ensure `vendor_bridge` snapshot context is reset in a `finally` block inside `_sync_run` so `ThreadPoolExecutor` thread reuse cannot carry a stale snapshot from one ticker analysis into the next. Prefer `contextvars.ContextVar` over `threading.local`. Add a test that runs two tickers sequentially on the same executor thread and asserts each gets only its own snapshot data.
-- [ ] Write failing tests for provider config and Ollama base URL.
-- [ ] Implement LLM provider adapter.
+- [x] Write failing tests for provider config and Ollama base URL.
+- [x] Implement LLM provider adapter that emits TradingAgents' real config keys (`llm_provider`, `deep_think_llm`, `quick_think_llm`, `backend_url`) and scoped environment overrides for OpenAI and Ollama.
 - [ ] Write failing tests for agent data anchoring.
 - [ ] Implement snapshot-to-agent input adapter.
 - [x] Whitelist the permitted analyst combinations for V1. Only `["market", "news", "fundamentals"]` is allowed. The runner must reject unsupported analysts such as `social_media` or `insider` with a clear config error before constructing `TradingAgentsGraph`.
 - [ ] Make `max_debate_rounds` and `max_risk_discuss_rounds` configurable via settings. Remote models default to one round; Ollama/local small models default to two rounds. Document that single-round debate with small local models may increase degraded structured-output rates.
-- [ ] Write failing tests for async runner timeout/degraded behavior around synchronous TradingAgents graph execution.
-- [ ] Implement the TradingAgents runner with `run_in_executor` or an equivalent worker boundary.
+- [x] Write failing tests for split timeout/degraded behavior around synchronous TradingAgents graph execution and signal extraction. At the pinned commit, `SignalProcessor.process_signal()` is deterministic, but the runner still preserves `final_state` if extraction fails or times out.
+- [x] Add a split-timeout runner helper using `run_in_executor`: default graph timeout 240s, signal extraction timeout 30s, total timeout 280s.
+- [ ] Integrate the split-timeout helper into the actual TradingAgents runner with the Phase 4B runtime guards and LLM environment adapter.
 - [ ] Integrate or wrap TradingAgents analyst workflow only after the external-data inventory and wrappers are in place, so test runs cannot leak live yfinance/provider calls.
 - [x] Write failing tests for hallucination validator.
 - [x] Implement validator for unsupported numbers and future event dates that cannot be sourced from `snapshot.news_items`, `snapshot.fundamentals`, or explicit event records.

@@ -94,6 +94,27 @@ The V1 analyst whitelist intentionally passes only `market`, `news`, and
 tool family as news, so excluding it reduces unwrapped surface area without
 losing a unique data source in V1.
 
+At the pinned commit, TradingAgents constructs LLMs internally with
+`create_llm_client(provider=config["llm_provider"], model=..., base_url=config.get("backend_url"))`.
+Do not try to inject a prebuilt LangChain client object. The Phase 4 adapter
+must produce the upstream config keys `llm_provider`, `deep_think_llm`,
+`quick_think_llm`, and `backend_url`, and must set the environment variables
+the upstream client reads during construction.
+
+For V1, `packages/agents/trading_system_agents/llm_adapter.py` supports:
+
+- `openai`: upstream provider string `openai`; API key from `OPENAI_API_KEY`;
+  optional `OPENAI_BASE_URL` and config `backend_url` for a compatible endpoint.
+- `ollama`: upstream provider string `ollama`; no OpenAI API key is required;
+  base URL comes from config `backend_url` and is also exported as
+  `OLLAMA_BASE_URL` for upstream fallback compatibility.
+
+At the pinned commit, `SignalProcessor.process_signal()` is deterministic and
+uses `parse_rating()`; it does not make a second LLM call. The runner still
+keeps graph execution and signal extraction as separate timeout windows so a
+future upstream change or extraction failure can degrade to the baseline signal
+while preserving the graph `final_state` for agent reports.
+
 TradingAgents can run in the main Python environment if dependency dry-run
 checks pass. Its synchronous graph execution must be wrapped with an executor or
 worker boundary before exposing it from FastAPI. Checkpoint support should reuse
