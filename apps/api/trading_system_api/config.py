@@ -21,6 +21,12 @@ class Settings(BaseSettings):
     daily_email_enabled: bool = False
     daily_email_recipient: str | None = None
     email_debounce_days: int = 7
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_from_email: str | None = None
+    smtp_use_tls: bool = True
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

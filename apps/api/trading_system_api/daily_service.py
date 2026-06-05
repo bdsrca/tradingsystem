@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import asyncio
+import smtplib
 from datetime import datetime, timezone
+from email.message import EmailMessage
 
 import pandas as pd
 from sqlalchemy import select
@@ -11,12 +14,14 @@ from trading_system_api.models import (
     AnalysisRun,
     DailyWorkerRun,
     DailyWorkerTickerResult,
+    EmailNotification,
     MarketDataBar,
     WatchlistItem,
     utc_now,
 )
 from trading_system_data.symbols import SymbolIdentity
 from trading_system_data.twelve_data import TimeSeriesBar, TwelveDataClient
+from trading_system_email.digest import EmailDigest, EmailDigestItem, render_digest_text
 from trading_system_quant.baseline import generate_baseline_signal
 from trading_system_quant.signal_store import SignalCreate, append_signal
 from trading_system_worker.daily import (
@@ -94,6 +99,8 @@ async def run_daily_analysis(
     run.stale_count = result.stale_count
     run.degraded_count = result.degraded_count
     run.summary = result.summary()
+    if settings.daily_email_enabled and settings.daily_email_recipient:
+        await _send_and_record_digest(session, settings, run, result)
     await session.commit()
     await session.refresh(run)
     return run
@@ -263,3 +270,101 @@ def _bars_to_frame(rows: list[MarketDataBar]) -> pd.DataFrame:
             for row in rows
         ]
     )
+
+
+async def _send_and_record_digest(
+    session: AsyncSession,
+    settings: Settings,
+    run: DailyWorkerRun,
+    result,
+) -> None:
+    recipient = settings.daily_email_recipient
+    if not recipient:
+        return
+
+    digest = EmailDigest(
+        run_id=run.id,
+        triggered_by=run.triggered_by,
+        started_at=result.started_at,
+        finished_at=result.finished_at,
+        succeeded_count=result.succeeded_count,
+        failed_count=result.failed_count,
+        skipped_count=result.skipped_count,
+        stale_count=result.stale_count,
+        degraded_count=result.degraded_count,
+        items=[
+            EmailDigestItem(
+                ticker=item.ticker,
+                exchange=item.exchange,
+                status=item.status,
+                signal=item.signal,
+                confidence=item.confidence,
+                reason=item.reason,
+                error_message=item.error_message,
+            )
+            for item in result.items
+        ],
+    )
+    subject = f"Trading System daily digest: {result.status}"
+    body = render_digest_text(digest)
+    notification = EmailNotification(
+        worker_run_id=run.id,
+        recipient=recipient,
+        subject=subject,
+        body=body,
+        status="pending",
+        is_digest=True,
+    )
+    session.add(notification)
+
+    try:
+        await send_digest_email(
+            recipient=recipient,
+            subject=subject,
+            body=body,
+            settings=settings,
+        )
+    except Exception as exc:
+        notification.status = "failed"
+        notification.error_message = str(exc)
+        run.email_sent = False
+    else:
+        notification.status = "sent"
+        notification.sent_at = utc_now()
+        run.email_sent = True
+
+
+async def send_digest_email(
+    *,
+    recipient: str,
+    subject: str,
+    body: str,
+    settings: Settings,
+) -> None:
+    await asyncio.to_thread(_send_digest_email_sync, recipient, subject, body, settings)
+
+
+def _send_digest_email_sync(
+    recipient: str,
+    subject: str,
+    body: str,
+    settings: Settings,
+) -> None:
+    if not settings.smtp_host:
+        raise ValueError("SMTP_HOST is not configured")
+    sender = settings.smtp_from_email or settings.smtp_username
+    if not sender:
+        raise ValueError("SMTP_FROM_EMAIL or SMTP_USERNAME is required")
+
+    message = EmailMessage()
+    message["From"] = sender
+    message["To"] = recipient
+    message["Subject"] = subject
+    message.set_content(body)
+
+    with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=20) as smtp:
+        if settings.smtp_use_tls:
+            smtp.starttls()
+        if settings.smtp_username:
+            smtp.login(settings.smtp_username, settings.smtp_password or "")
+        smtp.send_message(message)
