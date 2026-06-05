@@ -6,6 +6,7 @@ from datetime import date, datetime, timezone
 from sqlalchemy import (
     Boolean,
     BigInteger,
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
@@ -82,6 +83,58 @@ class AnalysisRun(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
     watchlist_item_id: Mapped[str | None] = mapped_column(ForeignKey("watchlist_items.id"))
     status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False)
+    data_snapshot_id: Mapped[str | None] = mapped_column(String(36))
+    kronos_duration_ms: Mapped[int | None] = mapped_column(Integer)
+    llm_duration_ms: Mapped[int | None] = mapped_column(Integer)
+    agent_run_status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class AgentReport(Base):
+    __tablename__ = "agent_reports"
+    __table_args__ = (
+        CheckConstraint(
+            "role IN ("
+            "'market_analyst', "
+            "'fundamentals_analyst', "
+            "'news_analyst', "
+            "'bull_researcher', "
+            "'bear_researcher', "
+            "'risk_manager', "
+            "'portfolio_manager'"
+            ")",
+            name="ck_agent_reports_role",
+        ),
+        CheckConstraint(
+            "stage IN ('technical', 'fundamental', 'news', 'bull', 'bear', 'risk', 'final')",
+            name="ck_agent_reports_stage",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
+    analysis_run_id: Mapped[str] = mapped_column(ForeignKey("analysis_runs.id"), nullable=False)
+    role: Mapped[str] = mapped_column(String(32), nullable=False)
+    stage: Mapped[str] = mapped_column(String(32), nullable=False)
+    content_text: Mapped[str] = mapped_column(Text, nullable=False)
+    structured_json: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    prompt_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    model_provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    model_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    duration_ms: Mapped[int | None] = mapped_column(Integer)
+    is_degraded: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class AgentCheckpointPointer(Base):
+    __tablename__ = "agent_checkpoint_pointers"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
+    analysis_run_id: Mapped[str] = mapped_column(ForeignKey("analysis_runs.id"), nullable=False)
+    checkpoint_db_path: Mapped[str] = mapped_column(Text, nullable=False)
+    thread_id: Mapped[str] = mapped_column(String(16), nullable=False)
+    checkpoint_ns: Mapped[str] = mapped_column(String(64), default="", nullable=False)
+    checkpoint_skipped: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    skip_reason: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
