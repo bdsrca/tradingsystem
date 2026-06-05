@@ -240,6 +240,7 @@ Tasks:
 - [x] Make the Phase 4 checkpoint decision: use upstream LangGraph `SqliteSaver` with `checkpoint_enabled=True` when initialization succeeds, store pointer metadata only, and degrade to `checkpoint_enabled=False` when initialization fails.
 - [x] Add checkpoint pointer helper and tests for write/read serialization, persistent checkpoint cache path, per-run memory-log isolation, and checkpoint initialization fallback.
 - [x] Add Phase 4 DB store helpers for analysis-run status transitions, output-adapter `AgentReport` row persistence, retry append semantics, and checkpoint pointer metadata persistence.
+- [x] Add decision memory persistence for V1: store prior lessons in the platform DB, expose `save_memory()` / `get_relevant_memories(ticker)`, and inject formatted lessons into the agent runner config as `decision_memory_context`. Do not synchronize upstream `trading_memory.md`; keep that file per-run isolated.
 - [ ] Call the Phase 4 DB store helpers from the live TradingAgents runner path once the pinned `TradingAgentsGraph` integration replaces the mock seam.
 - [x] Verify TradingAgents `AgentState` keys at the pinned commit before writing the output adapter: `market_report`, `sentiment_report`, `news_report`, `fundamentals_report`, `investment_debate_state`, `investment_plan`, `trader_investment_plan`, `risk_debate_state`, and `final_trade_decision`.
 - [x] Add an output adapter that parses `final_state` directly into `AgentReport` rows without reading `_log_state()` JSON files. Missing/empty report fields degrade the corresponding row instead of raising `KeyError`; `structured_json` stores adapter-owned summaries rather than parsed LLM JSON.
@@ -248,7 +249,6 @@ Tasks:
 - [x] Add E2E seam tests for the three runner junction risks: persistent checkpoint path must differ from per-run memory/results paths, `ContextVar` snapshot setup happens inside the executor thread, and mock `final_trade_decision` contains a parseable rating for deterministic signal extraction.
 - [ ] In the live `TradingAgentsGraph` integration, call actual `tradingagents.dataflows.config.set_config(config)` inside the worker before graph construction/execution and keep no-network workflow tests enabled.
 - [ ] Replace the mock graph step with the pinned `TradingAgentsGraph` construction after dependency checks and no-network workflow tests are in place.
-- [ ] Add decision memory persistence.
 - [ ] Commit.
 
 ## Phase 5: Scheduler, Worker, Freshness, Email, And Observability

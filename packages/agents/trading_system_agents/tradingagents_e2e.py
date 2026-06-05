@@ -12,6 +12,10 @@ from trading_system_agents.checkpoint import (
     configure_checkpoint_or_degrade,
 )
 from trading_system_agents.config import AgentRunConfig
+from trading_system_agents.decision_memory import (
+    DecisionMemoryLesson,
+    format_decision_memory_context,
+)
 from trading_system_agents.llm_adapter import TradingAgentsLLMConfig, tradingagents_llm_environment
 from trading_system_agents.output_adapter import adapt_final_state_to_reports
 from trading_system_agents.report import AgentReport
@@ -62,6 +66,7 @@ async def run_tradingagents_e2e(
         [dict[str, object], TradingAgentsCheckpointPointer], None
     ]
     | None = None,
+    decision_memory: list[DecisionMemoryLesson] | None = None,
     duration_ms_by_stage: Mapping[str, int] | None = None,
     tradingagents_config_module: object | None = None,
 ) -> TradingAgentsE2EResult:
@@ -73,6 +78,7 @@ async def run_tradingagents_e2e(
         llm_config=llm_config,
         run_config=run_config,
         checkpoint_initialize=checkpoint_initialize,
+        decision_memory=decision_memory,
     )
     config = checkpoint_setup.config
 
@@ -133,10 +139,12 @@ def _configure_checkpoint(
         [dict[str, object], TradingAgentsCheckpointPointer], None
     ]
     | None,
+    decision_memory: list[DecisionMemoryLesson] | None,
 ) -> CheckpointSetupResult:
     base_config = llm_config.to_tradingagents_config(run_config)
     base_config["selected_analysts"] = run_config.selected_analysts
     base_config.update(platform_vendor_config())
+    base_config["decision_memory_context"] = format_decision_memory_context(decision_memory or [])
     return configure_checkpoint_or_degrade(
         runtime_dirs,
         checkpoint_data_dir=checkpoint_data_dir,

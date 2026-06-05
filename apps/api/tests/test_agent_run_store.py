@@ -10,14 +10,16 @@ from trading_system_agents.checkpoint import TradingAgentsCheckpointPointer
 from trading_system_agents.report import AgentReport as AgentReportResult
 from trading_system_api.agent_run_store import (
     append_agent_reports,
+    get_relevant_memories,
     mark_agent_run_completed,
     mark_agent_run_degraded,
     mark_agent_run_failed,
     mark_agent_run_running,
     persist_checkpoint_pointer,
+    save_memory,
 )
 from trading_system_api.database import Base
-from trading_system_api.models import AgentCheckpointPointer, AgentReport, AnalysisRun
+from trading_system_api.models import AgentCheckpointPointer, AgentReport, AnalysisRun, DecisionMemory
 
 
 @pytest.mark.asyncio
@@ -117,6 +119,50 @@ async def test_persist_checkpoint_pointer_writes_pointer_metadata_only() -> None
     assert row.checkpoint_skipped is True
     assert row.skip_reason == "checkpoint initialization failed: readonly"
     assert not hasattr(row, "checkpoint_enabled")
+
+
+@pytest.mark.asyncio
+async def test_decision_memory_store_saves_and_returns_relevant_lessons() -> None:
+    session_factory = await _session_factory()
+
+    async with session_factory() as session:
+        run = AnalysisRun()
+        session.add(run)
+        await session.commit()
+
+        await save_memory(
+            session,
+            ticker="AAPL",
+            exchange="NASDAQ",
+            analysis_run_id=run.id,
+            signal="BUY",
+            decision_text="Bought breakout.",
+            lesson_text="Breakouts worked only when volume confirmed.",
+        )
+        await save_memory(
+            session,
+            ticker="SHOP",
+            exchange="TSX",
+            decision_text="Canadian peer.",
+            lesson_text="Do not return unrelated ticker memories.",
+        )
+        await save_memory(
+            session,
+            ticker="AAPL",
+            exchange="NASDAQ",
+            signal="SELL",
+            decision_text="Sold after failed continuation.",
+            lesson_text="Failed continuation should reduce confidence.",
+        )
+
+        rows = (await session.execute(select(DecisionMemory))).scalars().all()
+        lessons = await get_relevant_memories(session, ticker="AAPL", limit=1)
+
+    assert len(rows) == 3
+    assert len(lessons) == 1
+    assert lessons[0].ticker == "AAPL"
+    assert lessons[0].signal == "SELL"
+    assert lessons[0].lesson_text == "Failed continuation should reduce confidence."
 
 
 async def _session_factory():

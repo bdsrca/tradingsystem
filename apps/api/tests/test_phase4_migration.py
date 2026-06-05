@@ -16,6 +16,7 @@ def test_phase4_alembic_upgrade_creates_agent_tables_and_run_columns(tmp_path, m
 
     assert "agent_reports" in inspector.get_table_names()
     assert "agent_checkpoint_pointers" in inspector.get_table_names()
+    assert "decision_memories" in inspector.get_table_names()
 
     analysis_columns = {column["name"]: column for column in inspector.get_columns("analysis_runs")}
     assert "data_snapshot_id" in analysis_columns
@@ -36,6 +37,11 @@ def test_phase4_alembic_upgrade_creates_agent_tables_and_run_columns(tmp_path, m
     assert pointer_columns["checkpoint_db_path"]["nullable"] is False
     assert pointer_columns["checkpoint_skipped"]["nullable"] is False
     assert "checkpoint_enabled" not in pointer_columns
+
+    memory_columns = {column["name"]: column for column in inspector.get_columns("decision_memories")}
+    assert memory_columns["ticker"]["nullable"] is False
+    assert memory_columns["lesson_text"]["nullable"] is False
+    assert memory_columns["is_active"]["nullable"] is False
 
     report_checks = {
         constraint["name"] for constraint in inspector.get_check_constraints("agent_reports")

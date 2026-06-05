@@ -175,6 +175,14 @@ Phase 4B per-run directory when `checkpoint_enabled=True`, because a per-run
 cleanup would invalidate the pointer. Instead, use a persistent checkpoint/cache
 directory for `data_cache_dir` and set `memory_log_path` to the per-run
 `memory/trading_memory.md` path so stale memory entries remain isolated.
+
+V1 decision memory is platform-owned. Store reusable lessons in the
+`decision_memories` table and inject formatted lessons into the runner config as
+`decision_memory_context`. Do not synchronize or reuse upstream
+`trading_memory.md` as the durable memory source in V1; that file remains
+per-run isolated to prevent stale pending entries from triggering upstream
+return-resolution paths.
+
 `packages/agents/trading_system_agents/checkpoint.py` contains the pointer and
 checkpoint fallback helper. If checkpoint initialization fails, the runner must
 set `checkpoint_enabled=False`, continue the agent run, and record

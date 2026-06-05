@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from trading_system_agents.config import AgentRunConfig
+from trading_system_agents.decision_memory import DecisionMemoryLesson
 from trading_system_agents.llm_adapter import TradingAgentsLLMConfig
 from trading_system_agents.snapshot import DataSnapshot
 from trading_system_agents.tradingagents_e2e import run_tradingagents_e2e
@@ -71,6 +72,36 @@ async def test_e2e_runner_uses_persistent_checkpoint_cache_and_per_run_memory_lo
     assert result.config["data_vendors"]["core_stock_apis"] == "platform"
     assert result.config["tool_vendors"]["get_stock_data"] == "platform"
     assert result.config["tool_vendors"]["get_news"] == "platform"
+
+
+@pytest.mark.asyncio
+async def test_e2e_runner_injects_decision_memory_context(tmp_path) -> None:
+    def graph_step(config: dict[str, object]) -> dict[str, object]:
+        memory_context = str(config["decision_memory_context"])
+        assert "Prior decision lessons:" in memory_context
+        assert "Breakouts worked only when volume confirmed." in memory_context
+        return {"final_trade_decision": "**Rating**: Hold\n\nMemory was injected."}
+
+    result = await run_tradingagents_e2e(
+        snapshot=_snapshot("AAPL"),
+        analysis_run_id="analysis-1",
+        run_id="run-1",
+        runtime_base_dir=tmp_path / "runs",
+        checkpoint_data_dir=tmp_path / "checkpoint-cache",
+        llm_config=_llm(),
+        run_config=AgentRunConfig(llm_provider="ollama"),
+        graph_step=graph_step,
+        decision_memory=[
+            DecisionMemoryLesson(
+                ticker="AAPL",
+                exchange="NASDAQ",
+                signal="BUY",
+                lesson_text="Breakouts worked only when volume confirmed.",
+            )
+        ],
+    )
+
+    assert result.signal == "HOLD"
 
 
 @pytest.mark.asyncio

@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from sqlalchemy import CheckConstraint, ForeignKey
 
-from trading_system_api.models import AgentCheckpointPointer, AgentReport, AnalysisRun, Signal
+from trading_system_api.models import (
+    AgentCheckpointPointer,
+    AgentReport,
+    AnalysisRun,
+    DecisionMemory,
+    Signal,
+)
 
 
 def test_phase4_analysis_run_columns_exist() -> None:
@@ -76,6 +82,29 @@ def test_phase4_does_not_put_prompt_metadata_on_signals() -> None:
 
     assert "prompt_version" not in columns
     assert "model_name" not in columns
+
+
+def test_phase4_decision_memory_schema_boundary() -> None:
+    columns = DecisionMemory.__table__.columns
+
+    for name in [
+        "id",
+        "ticker",
+        "exchange",
+        "analysis_run_id",
+        "signal",
+        "decision_text",
+        "lesson_text",
+        "source",
+        "is_active",
+        "created_at",
+    ]:
+        assert name in columns
+
+    assert columns["ticker"].nullable is False
+    assert columns["lesson_text"].nullable is False
+    assert columns["is_active"].nullable is False
+    assert _has_fk(columns["analysis_run_id"].foreign_keys, "analysis_runs.id")
 
 
 def _has_fk(foreign_keys: set[ForeignKey], target: str) -> bool:

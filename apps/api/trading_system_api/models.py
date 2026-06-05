@@ -140,6 +140,21 @@ class AgentCheckpointPointer(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
+class DecisionMemory(Base):
+    __tablename__ = "decision_memories"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
+    ticker: Mapped[str] = mapped_column(String(32), nullable=False)
+    exchange: Mapped[str | None] = mapped_column(String(32))
+    analysis_run_id: Mapped[str | None] = mapped_column(ForeignKey("analysis_runs.id"))
+    signal: Mapped[str | None] = mapped_column(String(16))
+    decision_text: Mapped[str | None] = mapped_column(Text)
+    lesson_text: Mapped[str] = mapped_column(Text, nullable=False)
+    source: Mapped[str] = mapped_column(String(32), default="platform", nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
 class Signal(Base):
     __tablename__ = "signals"
 

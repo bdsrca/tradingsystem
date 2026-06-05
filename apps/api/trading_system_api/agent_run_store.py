@@ -6,8 +6,14 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from trading_system_agents.checkpoint import TradingAgentsCheckpointPointer
+from trading_system_agents.decision_memory import DecisionMemoryLesson
 from trading_system_agents.report import AgentReport as AgentReportResult
-from trading_system_api.models import AgentCheckpointPointer, AgentReport, AnalysisRun
+from trading_system_api.models import (
+    AgentCheckpointPointer,
+    AgentReport,
+    AnalysisRun,
+    DecisionMemory,
+)
 
 
 AGENT_RUN_PENDING = "pending"
@@ -127,6 +133,61 @@ async def persist_checkpoint_pointer(
     session.add(row)
     await session.commit()
     return row
+
+
+async def save_memory(
+    session: AsyncSession,
+    *,
+    ticker: str,
+    lesson_text: str,
+    exchange: str | None = None,
+    analysis_run_id: str | None = None,
+    signal: str | None = None,
+    decision_text: str | None = None,
+    source: str = "platform",
+) -> DecisionMemory:
+    row = DecisionMemory(
+        ticker=ticker.upper(),
+        exchange=exchange,
+        analysis_run_id=analysis_run_id,
+        signal=signal,
+        decision_text=decision_text,
+        lesson_text=lesson_text,
+        source=source,
+        is_active=True,
+    )
+    session.add(row)
+    await session.commit()
+    return row
+
+
+async def get_relevant_memories(
+    session: AsyncSession,
+    *,
+    ticker: str,
+    limit: int = 5,
+) -> list[DecisionMemoryLesson]:
+    rows = (
+        await session.execute(
+            select(DecisionMemory)
+            .where(
+                DecisionMemory.ticker == ticker.upper(),
+                DecisionMemory.is_active.is_(True),
+            )
+            .order_by(DecisionMemory.created_at.desc())
+            .limit(limit)
+        )
+    ).scalars().all()
+    return [
+        DecisionMemoryLesson(
+            ticker=row.ticker,
+            exchange=row.exchange,
+            signal=row.signal,
+            decision_text=row.decision_text,
+            lesson_text=row.lesson_text,
+        )
+        for row in rows
+    ]
 
 
 async def _update_analysis_run(
