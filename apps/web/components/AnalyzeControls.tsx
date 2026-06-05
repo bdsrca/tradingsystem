@@ -12,9 +12,17 @@ type Props = {
 export default function AnalyzeControls({ ticker, exchange }: Props) {
   const [status, setStatus] = useState<string | null>(null);
   const analysisQuery = exchange ? `?exchange=${encodeURIComponent(exchange)}` : "";
+  const marketDataQuery = exchange ? `?exchange=${encodeURIComponent(exchange)}` : "";
   const paperQuery = new URLSearchParams({ window_years: "1" });
   if (exchange) {
     paperQuery.set("exchange", exchange);
+  }
+
+  async function refreshData() {
+    setStatus("Refreshing data");
+    await fetchJson(`/market-data/${ticker}/refresh${marketDataQuery}`, { method: "POST" });
+    setStatus("Daily bars refreshed");
+    window.location.reload();
   }
 
   async function runBaseline() {
@@ -40,6 +48,9 @@ export default function AnalyzeControls({ ticker, exchange }: Props) {
 
   return (
     <div className="action-row">
+      <button onClick={refreshData} type="button">
+        Refresh data
+      </button>
       <button onClick={runBaseline} type="button">
         Run baseline
       </button>

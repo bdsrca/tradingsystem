@@ -27,7 +27,10 @@ def test_to_twelve_data_symbol_maps_canadian_exchanges() -> None:
     assert to_twelve_data_symbol(normalize_symbol("BTE.V")) == "BTE:TSXV"
 
 
+def test_to_twelve_data_symbol_includes_non_nasdaq_us_exchange() -> None:
+    assert to_twelve_data_symbol(normalize_symbol("MDA:NYSE")) == "MDA:NYSE"
+
+
 def test_normalize_symbol_rejects_blank_input() -> None:
     with pytest.raises(ValueError):
         normalize_symbol(" ")
-

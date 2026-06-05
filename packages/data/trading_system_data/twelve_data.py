@@ -8,7 +8,7 @@ from typing import Any
 
 import httpx
 
-from trading_system_data.symbols import SymbolIdentity, to_twelve_data_symbol
+from trading_system_data.symbols import SymbolIdentity, SymbolSearchCandidate, to_twelve_data_symbol
 
 
 @dataclass(frozen=True)
@@ -75,6 +75,20 @@ class TwelveDataClient:
             payload = response.json()
         return parse_time_series(payload)
 
+    async def search_symbols(self, symbol: str) -> list[SymbolSearchCandidate]:
+        await self._rate_limiter.wait()
+        async with httpx.AsyncClient(base_url=self._base_url, timeout=20) as client:
+            response = await client.get(
+                "/symbol_search",
+                params={
+                    "symbol": symbol,
+                    "apikey": self._api_key,
+                },
+            )
+            response.raise_for_status()
+            payload = response.json()
+        return parse_symbol_search(payload)
+
 
 def parse_time_series(payload: dict[str, Any]) -> list[TimeSeriesBar]:
     if "values" not in payload:
@@ -104,3 +118,20 @@ def parse_time_series(payload: dict[str, Any]) -> list[TimeSeriesBar]:
 
     return bars
 
+
+def parse_symbol_search(payload: dict[str, Any]) -> list[SymbolSearchCandidate]:
+    values = payload.get("data") or []
+    candidates: list[SymbolSearchCandidate] = []
+    for value in values:
+        symbol = str(value.get("symbol") or "").strip()
+        exchange = str(value.get("exchange") or "").strip()
+        if not symbol or not exchange:
+            continue
+        candidates.append(
+            SymbolSearchCandidate(
+                symbol=symbol.upper(),
+                exchange=exchange.upper(),
+                country=str(value.get("country") or "").strip() or None,
+            )
+        )
+    return candidates

@@ -4,10 +4,18 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from trading_system_api.config import Settings, get_settings
 from trading_system_api.database import get_session
 from trading_system_api.models import WatchlistItem
 from trading_system_api.schemas import WatchlistCreate, WatchlistRead, WatchlistUpdate
-from trading_system_data.symbols import normalize_symbol, to_twelve_data_symbol
+from trading_system_data.symbols import (
+    SymbolIdentity,
+    normalize_symbol,
+    resolve_bare_symbol_from_candidates,
+    symbol_has_explicit_exchange,
+    to_twelve_data_symbol,
+)
+from trading_system_data.twelve_data import TwelveDataClient
 
 router = APIRouter(prefix="/watchlist", tags=["watchlist"])
 
@@ -22,8 +30,9 @@ async def list_watchlist(session: AsyncSession = Depends(get_session)) -> list[W
 async def create_watchlist_item(
     payload: WatchlistCreate,
     session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
 ) -> WatchlistItem:
-    identity = normalize_symbol(payload.symbol)
+    identity = await _resolve_watchlist_identity(payload.symbol, settings)
     item = WatchlistItem(
         ticker=identity.ticker,
         exchange=identity.exchange,
@@ -84,3 +93,14 @@ async def _get_item_or_404(item_id: str, session: AsyncSession) -> WatchlistItem
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Watchlist item not found")
     return item
 
+
+async def _resolve_watchlist_identity(raw_symbol: str, settings: Settings) -> SymbolIdentity:
+    identity = normalize_symbol(raw_symbol)
+    if symbol_has_explicit_exchange(raw_symbol) or not settings.twelve_data_api_key:
+        return identity
+
+    try:
+        candidates = await TwelveDataClient(settings.twelve_data_api_key).search_symbols(identity.ticker)
+    except Exception:
+        return identity
+    return resolve_bare_symbol_from_candidates(raw_symbol, candidates, fallback=identity)

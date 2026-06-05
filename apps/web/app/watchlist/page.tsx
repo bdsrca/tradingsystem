@@ -10,6 +10,7 @@ export default function WatchlistPage() {
   const [symbol, setSymbol] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
 
   async function loadWatchlist() {
     setLoading(true);
@@ -32,15 +33,34 @@ export default function WatchlistPage() {
     if (!symbol.trim()) {
       return;
     }
+    setAdding(true);
+    setError(null);
     try {
-      await fetchJson<WatchlistItem>("/watchlist", {
+      const created = await fetchJson<WatchlistItem>("/watchlist", {
         method: "POST",
         body: JSON.stringify({ symbol })
       });
       setSymbol("");
+      let refreshError: string | null = null;
+      try {
+        await fetchJson(
+          `/market-data/${created.ticker}/refresh?exchange=${encodeURIComponent(created.exchange)}`,
+          { method: "POST" }
+        );
+      } catch (err) {
+        refreshError =
+          err instanceof Error
+            ? `Added ${created.ticker}, but price refresh failed: ${err.message}`
+            : `Added ${created.ticker}, but price refresh failed`;
+      }
       await loadWatchlist();
+      if (refreshError) {
+        setError(refreshError);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add symbol");
+    } finally {
+      setAdding(false);
     }
   }
 
@@ -60,10 +80,12 @@ export default function WatchlistPage() {
         <input
           aria-label="Ticker symbol"
           onChange={(event) => setSymbol(event.target.value)}
-          placeholder="AAPL, SHOP.TO, RY:TSX"
+          placeholder="AAPL, MDA:NYSE, SHOP.TO, RY:TSX"
           value={symbol}
         />
-        <button type="submit">Add</button>
+        <button disabled={adding} type="submit">
+          {adding ? "Adding" : "Add"}
+        </button>
       </form>
 
       {error ? <p className="error">{error}</p> : null}
@@ -103,4 +125,3 @@ export default function WatchlistPage() {
     </main>
   );
 }
-
