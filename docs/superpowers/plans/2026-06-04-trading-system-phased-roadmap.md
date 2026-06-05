@@ -207,14 +207,15 @@ Tasks:
 
 - [ ] Pin TradingAgents to a specific commit or version before importing its components.
 - [ ] Run dependency conflict checks with Kronos and TradingAgents enabled together.
-- [ ] Inventory TradingAgents internal external-data tools before enabling workflow tests. At the pinned commit this must include `tradingagents/dataflows/interface.py`, `VENDOR_METHODS`, `route_to_vendor()`, and the direct yfinance paths in `tradingagents/graph/trading_graph.py`.
+- [x] Inventory TradingAgents internal external-data tools before enabling workflow tests. At the pinned commit this must include `tradingagents/dataflows/interface.py`, `VENDOR_METHODS`, `route_to_vendor()`, and the direct yfinance paths in `tradingagents/graph/trading_graph.py`.
 - [x] Record the direct yfinance escape-path decision in `CONTRIBUTING.md`: `_fetch_returns()` is disabled or wrapped for Phase 4 agent runs, and `resolve_instrument_identity()` must use stored metadata or fail open without network by default.
-- [ ] Verify that `resolve_instrument_identity()` at the pinned TradingAgents commit calls `yf.Ticker().info` network-first. Patch or wrap this function in the runner so it uses snapshot `display_name` directly and never issues a network request. Record the patch location and method in `CONTRIBUTING.md`.
+- [x] Verify that `resolve_instrument_identity()` at the pinned TradingAgents commit calls `yf.Ticker().info` network-first and is `lru_cache`-backed. Add a Phase 4B runtime helper that clears the cache, replaces the function itself with snapshot-backed metadata, and patches the imported `trading_graph` reference. Record the patch location and method in `CONTRIBUTING.md`.
 - [x] Write failing tests for registering a platform vendor through TradingAgents' vendor-routing layer.
 - [x] Implement the platform vendor bridge for snapshot-backed market data, indicators, fundamentals, and news where the upstream method shape allows it.
 - [x] Write failing no-network tests that monkeypatch `yfinance.download` and `yfinance.Ticker` to raise immediately during agent workflow execution.
 - [x] Add HTTP-layer no-network tests with `pytest-httpx`, `respx`, or a native HTTPX transport guard, blocking external market-data hostnames such as `finance.yahoo.com`, `query1.finance.yahoo.com`, `twelvedata.com`, and `finnhub.io`. Split tests into unit tests with full network blocked and explicit integration tests where configured LLM endpoints may be allowed while market-data hosts remain blocked.
-- [ ] Implement data-tool wrappers and escape-path guards before constructing the TradingAgents workflow in tests.
+- [x] Add Phase 4B escape-path guard helpers for TradingAgents runs: fresh per-run `data_cache_dir`/`results_dir` creation that fails closed when reused, plus a pending-entry resolution no-op guard so stale memory logs cannot trigger `_fetch_returns()` and yfinance before the platform owns realized-return backfill.
+- [ ] Integrate the Phase 4B escape-path guard helpers into the actual TradingAgents runner before constructing workflow tests.
 - [x] Ensure `vendor_bridge` snapshot context is reset in a `finally` block inside `_sync_run` so `ThreadPoolExecutor` thread reuse cannot carry a stale snapshot from one ticker analysis into the next. Prefer `contextvars.ContextVar` over `threading.local`. Add a test that runs two tickers sequentially on the same executor thread and asserts each gets only its own snapshot data.
 - [ ] Write failing tests for provider config and Ollama base URL.
 - [ ] Implement LLM provider adapter.

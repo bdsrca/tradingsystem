@@ -63,12 +63,36 @@ outside the platform snapshot. Company identity can fail open to stored metadata
 or an empty value, but it should not silently perform live network lookup by
 default.
 
+At the pinned commit, `resolve_instrument_identity()` is decorated with
+`functools.lru_cache(maxsize=256)`. Agent runner code must clear that cache and
+replace the resolver function itself before calling `TradingAgentsGraph.propagate()`;
+blocking network calls alone can produce false-positive tests if a previous run
+filled the cache. `packages/agents/trading_system_agents/tradingagents_runtime.py`
+contains the Phase 4B helper for this: it calls `cache_clear()` when available
+and patches both `tradingagents.agents.utils.agent_utils.resolve_instrument_identity`
+and the imported `tradingagents.graph.trading_graph.resolve_instrument_identity`
+reference with snapshot-backed identity metadata.
+
+`TradingAgentsGraph.propagate()` resolves pending memory-log entries before
+running the graph. Those pending entries can call `_fetch_returns()` and then
+`yf.Ticker(...).history()`. Phase 4 runner tests must use a fresh
+`data_cache_dir` per analysis run and disable pending-entry resolution until the
+platform owns realized-return backfill. The runtime helper creates a new run
+directory and fails closed if it already exists so stale `trading_memory.md`
+files cannot be reused silently.
+
 No-network tests must cover both direct yfinance calls and HTTP client paths.
 Patch `yfinance.download` and `yfinance.Ticker` to fail fast in agent workflow
 tests, and use `pytest-httpx` or `respx` to block market-data hostnames such as
 `finance.yahoo.com`, `query1.finance.yahoo.com`, `twelvedata.com`, and
 `finnhub.io`. LLM endpoints may be allowed only in explicit integration tests;
 market-data hosts remain blocked.
+
+The V1 analyst whitelist intentionally passes only `market`, `news`, and
+`fundamentals` to `TradingAgentsGraph`, even though upstream defaults include
+`social`. At the pinned commit, the social analyst shares the same `get_news`
+tool family as news, so excluding it reduces unwrapped surface area without
+losing a unique data source in V1.
 
 TradingAgents can run in the main Python environment if dependency dry-run
 checks pass. Its synchronous graph execution must be wrapped with an executor or
